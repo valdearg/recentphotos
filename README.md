@@ -21,4 +21,27 @@ sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable recentphotos
 sudo -u www-data php8.2 /var/www/nextcloud/occ upgrade
 sudo -u www-data php8.2 /var/www/nextcloud/occ recentphotos:rebuild-index
 ```
+
+With Make:
+
+```
+Available targets:
+    make build            - Build frontend
+    make dev              - Dev build
+    make watch            - Watch mode
+    make clean            - Remove node modules and build
+
+    make autoload         - Composer autoload refresh
+    make enable           - Enable app
+    make disable          - Disable app
+    make restart          - Disable + Enable app
+    make upgrade          - Run Nextcloud upgrade
+
+    make rebuild-index    - Rebuild full index
+    make rebuild-user USER_ID=valdearg
+    make rebuild-path USER_ID=valdearg PATH='files/Photos/Pixiv'
+
+    make quick-build      - Build + reload app
+    make deploy           - Build + upgrade + reload
+```
 # recentphotos
