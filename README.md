@@ -1,4 +1,4 @@
-# Recent Photos v9
+# Recent Photos
 
 This package extends v8 with media support:
 
