@@ -1,0 +1,12 @@
+{
+  "name": "oca/recentphotos",
+  "description": "Recent Photos Nextcloud app scaffold",
+  "type": "project",
+  "license": "AGPL-3.0-or-later",
+  "autoload": {
+    "psr-4": {
+      "OCA\\RecentPhotos\\": "lib/"
+    }
+  },
+  "require": {}
+}

@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<info>
+  <id>recentphotos</id>
+  <name>Recent Photos</name>
+  <summary>Recent image browser with index-backed browsing</summary>
+  <description>A new photo browsing app for Nextcloud with configurable pagination or infinite scroll, index-backed querying, and settings.</description>
+  <version>0.6.0</version>
+  <licence>agpl</licence>
+  <author>Your Name</author>
+  <namespace>RecentPhotos</namespace>
+  <category>multimedia</category>
+  <dependencies>
+    <php min-version="8.2" max-version="8.5" />
+    <nextcloud min-version="31" max-version="33" />
+  </dependencies>
+  <commands>
+    <command>OCA\RecentPhotos\Command\RebuildIndexCommand</command>
+  </commands>
+  <navigations>
+    <navigation>
+      <name>Recent Photos</name>
+      <route>recentphotos.page.index</route>
+      <icon>app.svg</icon>
+    </navigation>
+  </navigations>
+</info>
