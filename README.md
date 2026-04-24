@@ -1,18 +1,22 @@
 # Recent Photos
 
-This package extends v8 with media support:
+Alternative for the NextCloud Photos module. 
 
-- GIF support with direct-file playback in the viewer
-- Video support with inline HTML5 playback in the viewer
-- `media_type` stored in the index
-- media badges in the grid
-- viewer now handles image / gif / video appropriately
+- Uses own DB index
+- Gives additional sorting options (Date added, Created, Modified, Name, Size)
+- Gives additional display modes (Infinite Scroll or Pagination)
+- Fixes issues with infinite scroll present in Photos module.
+- Returns option to open path to image in a new tab.
+- Replaces Viewer for media, returns the ability to click off image.
+
+All AI generated, use at own risk
 
 ## Install / update
 
 ```bash
-cd /var/www/nextcloud/apps/recentphotos
-rm -rf node_modules package-lock.json js/
+cd /var/www/nextcloud/apps
+git clone git@github.com:valdearg/recentphotos.git
+cd recentphotos
 npm install
 npm run build
 composer dump-autoload
@@ -44,4 +48,3 @@ Available targets:
     make quick-build      - Build + reload app
     make deploy           - Build + upgrade + reload
 ```
-# recentphotos
