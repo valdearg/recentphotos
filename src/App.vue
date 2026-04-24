@@ -32,6 +32,22 @@
 
 		<ImageViewer v-if="viewerOpen" :images="images" :start-index="viewerIndex" @close="closeViewer"
 			@load-more="loadNextPage" />
+
+		<div class="floating-actions">
+			<button type="button" class="floating-button" title="Refresh results" aria-label="Refresh results"
+				@click="refreshAndTop" :disabled="loading">
+				<svg viewBox="0 0 24 24" :class="{ spinning: loading }">
+					<path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" />
+				</svg>
+			</button>
+
+			<button type="button" class="floating-button" title="Back to top" aria-label="Back to top"
+				@click="scrollToTop">
+				<svg viewBox="0 0 24 24">
+					<path d="M12 19V5M5 12l7-7 7 7" />
+				</svg>
+			</button>
+		</div>
 	</div>
 </template>
 
@@ -168,6 +184,13 @@ export default {
 		closeViewer() {
 			this.viewerOpen = false
 		},
+
+		async refreshAndTop() {
+			if (this.loading) return
+
+			await this.loadPage(1, false)
+			this.scrollToTop()
+		},
 	},
 }
 </script>
@@ -244,6 +267,54 @@ export default {
 }
 
 .icon-button.is-loading svg {
+	animation: recentphotos-spin 0.9s linear infinite;
+}
+
+.floating-actions {
+	position: fixed;
+	right: 18px;
+	bottom: 18px;
+	z-index: 1000;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.floating-button {
+	width: 38px;
+	height: 38px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid var(--color-border, rgba(255, 255, 255, 0.25));
+	border-radius: 999px;
+	background: var(--color-main-background, rgba(0, 0, 0, 0.55));
+	color: var(--color-main-text, currentColor);
+	opacity: 0.28;
+	cursor: pointer;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+	transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease;
+}
+
+.floating-button:hover {
+	opacity: 0.95;
+	transform: translateY(-2px);
+}
+
+.floating-button:disabled {
+	cursor: default;
+	opacity: 0.45;
+}
+
+.floating-button svg {
+	width: 18px;
+	height: 18px;
+	stroke: currentColor;
+	stroke-width: 2;
+	fill: none;
+}
+
+.spinning {
 	animation: recentphotos-spin 0.9s linear infinite;
 }
 
