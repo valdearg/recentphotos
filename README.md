@@ -48,3 +48,10 @@ Available targets:
     make quick-build      - Build + reload app
     make deploy           - Build + upgrade + reload
 ```
+# Screenshots
+## Grid view:
+<img width="1918" height="920" alt="image" src="https://github.com/user-attachments/assets/81fae78f-6b51-41df-85e3-0e877083c921" />
+
+## Slideshow mode:
+<img width="1919" height="918" alt="image" src="https://github.com/user-attachments/assets/7a8a7f5b-8f69-49f8-887c-9edabb084abb" />
+
