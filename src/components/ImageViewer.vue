@@ -10,27 +10,39 @@
 						<path d="M5 12h14" />
 					</svg>
 				</button>
+
 				<button @click="zoomIn" title="Zoom in" :disabled="isVideo">
 					<svg viewBox="0 0 24 24">
 						<path d="M12 5v14M5 12h14" />
 					</svg>
 				</button>
+
 				<button @click="resetView" title="Reset" :disabled="isVideo">
 					<svg viewBox="0 0 24 24">
 						<path d="M12 5v4l3-3-3-3v4a7 7 0 1 0 7 7" />
 					</svg>
 				</button>
+
 				<button @click="toggleInfo" title="Info">
 					<svg viewBox="0 0 24 24">
 						<circle cx="12" cy="12" r="10" />
 						<path d="M12 16v-4M12 8h.01" />
 					</svg>
 				</button>
+
+				<button @click="toggleSharePanel" title="Share links">
+					<svg viewBox="0 0 24 24">
+						<path
+							d="M18 8a3 3 0 1 0-2.83-4H15a3 3 0 0 0 .17 1L8.9 8.14A3 3 0 1 0 9 12l6.17 3.09A3 3 0 1 0 16 13l-6.17-3.09" />
+					</svg>
+				</button>
+
 				<button @click="toggleFullscreen" title="Fullscreen">
 					<svg viewBox="0 0 24 24">
 						<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
 					</svg>
 				</button>
+
 				<button @click="toggleSlideshow" title="Slideshow">
 					<svg v-if="!slideshowRunning" viewBox="0 0 24 24">
 						<path d="M8 5v14l11-7z" />
@@ -39,11 +51,13 @@
 						<path d="M6 5h4v14H6zm8 0h4v14h-4z" />
 					</svg>
 				</button>
+
 				<button @click="openInNewTab" title="Open in new tab">
 					<svg viewBox="0 0 24 24">
 						<path d="M14 3h7v7M21 3l-9 9M5 5h6v2H7v10h10v-4h2v6H5z" />
 					</svg>
 				</button>
+
 				<button @click="$emit('close')" title="Close">
 					<svg viewBox="0 0 24 24">
 						<path d="M6 6l12 12M6 18L18 6" />
@@ -65,7 +79,6 @@
 			<div ref="imageWrap" class="viewer-image-wrap" @wheel.prevent="onWheel" @mousedown="startDrag"
 				@mousemove="onDrag" @mouseup="stopDrag" @mouseleave="stopDrag" @dblclick.stop="toggleDoubleClickZoom"
 				@touchstart.passive="onTouchStart" @touchend.passive="onTouchEnd">
-
 				<video v-if="isVideo && currentImage" ref="videoEl" class="viewer-video" :src="currentImage.fullUrl"
 					controls playsinline @click.stop @loadedmetadata="updateMediaResolution"></video>
 
@@ -90,12 +103,14 @@
 			<div><strong>Created:</strong> {{ formatDate(currentImage.created) }}</div>
 			<div><strong>Modified:</strong> {{ formatDate(currentImage.modified) }}</div>
 			<div><strong>Size:</strong> {{ formatBytes(currentImage.size) }}</div>
-			<div><strong>MIME:</strong> {{ currentImage.mime }}</div>
-			<div><strong>Path:</strong> {{ currentImage.path }}</div>
 			<div><strong>Resolution:</strong> {{ mediaWidth && mediaHeight ? `${mediaWidth} × ${mediaHeight}` :
 				'Unknown' }}</div>
+			<div><strong>MIME:</strong> {{ currentImage.mime }}</div>
+			<div><strong>Path:</strong> {{ currentImage.path }}</div>
 			<div v-if="!isVideo"><strong>Zoom:</strong> {{ Math.round(scale * 100) }}%</div>
 		</div>
+
+		<SharePanel v-if="showSharePanel && currentImage" :item="currentImage" @close="showSharePanel = false" />
 
 		<div class="viewer-footer" :class="{ 'viewer-ui-hidden': uiHidden }">
 			{{ currentIndex + 1 }} / {{ images.length }}
@@ -104,12 +119,20 @@
 </template>
 
 <script>
+import SharePanel from './SharePanel.vue';
+
 export default {
 	name: 'ImageViewer',
+
+	components: {
+		SharePanel,
+	},
+
 	props: {
 		images: { type: Array, required: true },
 		startIndex: { type: Number, default: 0 },
 	},
+
 	data() {
 		return {
 			currentIndex: this.startIndex,
@@ -121,6 +144,7 @@ export default {
 			startX: 0,
 			startY: 0,
 			showInfo: false,
+			showSharePanel: false,
 			isFullscreen: false,
 			slideshowRunning: false,
 			timer: null,
@@ -132,11 +156,20 @@ export default {
 			mediaHeight: null,
 		}
 	},
+
 	computed: {
-		currentImage() { return this.images[this.currentIndex] || null },
-		hasNext() { return this.currentIndex < this.images.length - 1 },
-		hasPrevious() { return this.currentIndex > 0 },
-		isVideo() { return this.currentImage?.mediaType === 'video' },
+		currentImage() {
+			return this.images[this.currentIndex] || null
+		},
+		hasNext() {
+			return this.currentIndex < this.images.length - 1
+		},
+		hasPrevious() {
+			return this.currentIndex > 0
+		},
+		isVideo() {
+			return this.currentImage?.mediaType === 'video'
+		},
 		imageStyle() {
 			return {
 				transform: `translate(${this.x}px, ${this.y}px) scale(${this.scale})`,
@@ -144,126 +177,89 @@ export default {
 			}
 		},
 	},
+
 	watch: {
 		currentIndex(i) {
-			this.resetView();
+			this.resetView()
 			this.mediaWidth = null
 			this.mediaHeight = null
-			const next = this.images[i + 1];
-			if (next?.fullUrl) { const img = new Image(); img.src = next.fullUrl; }
-			const prev = this.images[i - 1];
-			if (prev?.fullUrl) { const img = new Image(); img.src = prev.fullUrl; }
-			if (i >= this.images.length - 3) this.$emit('load-more');
-			this.onActivity();
+			this.showSharePanel = false
+
+			const next = this.images[i + 1]
+			if (next?.fullUrl) {
+				const img = new Image()
+				img.src = next.fullUrl
+			}
+
+			const prev = this.images[i - 1]
+			if (prev?.fullUrl) {
+				const img = new Image()
+				img.src = prev.fullUrl
+			}
+
+			if (i >= this.images.length - 3) {
+				this.$emit('load-more')
+			}
+
+			this.onActivity()
 		},
+
 		slideshowRunning(value) {
-			if (value) this.startUiHideTimer();
-			else this.showUi();
+			if (value) this.startUiHideTimer()
+			else this.showUi()
 		},
 	},
+
 	mounted() {
-		document.body.appendChild(this.$el);
-		this.mounted = true;
-		window.addEventListener('keydown', this.onKey);
-		document.addEventListener('fullscreenchange', this.onFullscreenChange);
-		this.onActivity();
+		document.body.appendChild(this.$el)
+		this.mounted = true
+		window.addEventListener('keydown', this.onKey)
+		document.addEventListener('fullscreenchange', this.onFullscreenChange)
+		this.onActivity()
 	},
+
 	beforeDestroy() {
-		window.removeEventListener('keydown', this.onKey);
-		document.removeEventListener('fullscreenchange', this.onFullscreenChange);
-		this.stopSlideshow();
-		this.clearUiHideTimer();
-		if (this.$el && this.$el.parentNode) this.$el.parentNode.removeChild(this.$el);
+		window.removeEventListener('keydown', this.onKey)
+		document.removeEventListener('fullscreenchange', this.onFullscreenChange)
+		this.stopSlideshow()
+		this.clearUiHideTimer()
+
+		if (this.$el && this.$el.parentNode) {
+			this.$el.parentNode.removeChild(this.$el)
+		}
 	},
+
 	methods: {
 		onOverlayClick(e) {
-			const t = e.target;
-			if (this.$refs.toolbar?.contains(t)) return;
-			if (t.closest('.nav-button')) return;
-			if (t.closest('.viewer-info')) return;
-			if (this.$refs.imageEl?.contains(t)) return;
-			if (this.$refs.videoEl?.contains(t)) return;
-			if (t.closest('.viewer-side')) return;
-			this.$emit('close');
+			const t = e.target
+
+			if (this.$refs.toolbar?.contains(t)) return
+			if (t.closest('.nav-button')) return
+			if (t.closest('.viewer-info')) return
+			if (t.closest('.share-panel')) return
+			if (this.$refs.imageEl?.contains(t)) return
+			if (this.$refs.videoEl?.contains(t)) return
+			if (t.closest('.viewer-side')) return
+
+			this.$emit('close')
 		},
+
 		onKey(e) {
-			this.onActivity();
-			if (e.key === 'Escape') this.$emit('close');
-			else if (e.key === 'ArrowRight') this.nextImage();
-			else if (e.key === 'ArrowLeft') this.previousImage();
-			else if (e.key === ' ') { e.preventDefault(); this.toggleSlideshow(); }
-			else if (e.key.toLowerCase() === 'f') this.toggleFullscreen();
-			else if (e.key.toLowerCase() === 'i') this.toggleInfo();
-			else if (!this.isVideo && e.key === '+') this.zoomIn();
-			else if (!this.isVideo && e.key === '-') this.zoomOut();
-			else if (!this.isVideo && e.key === '0') this.resetView();
+			this.onActivity()
+
+			if (e.key === 'Escape') this.$emit('close')
+			else if (e.key === 'ArrowRight') this.nextImage()
+			else if (e.key === 'ArrowLeft') this.previousImage()
+			else if (e.key === ' ') {
+				e.preventDefault()
+				this.toggleSlideshow()
+			} else if (e.key.toLowerCase() === 'f') this.toggleFullscreen()
+			else if (e.key.toLowerCase() === 'i') this.toggleInfo()
+			else if (!this.isVideo && e.key === '+') this.zoomIn()
+			else if (!this.isVideo && e.key === '-') this.zoomOut()
+			else if (!this.isVideo && e.key === '0') this.resetView()
 		},
-		onFullscreenChange() { this.isFullscreen = !!document.fullscreenElement; },
-		async toggleFullscreen() {
-			try {
-				if (!document.fullscreenElement) await this.$el.requestFullscreen();
-				else await document.exitFullscreen();
-			} catch (e) { }
-		},
-		openInNewTab() {
-			if (!this.currentImage) return;
-			const url = this.currentImage.openUrl || this.currentImage.downloadUrl;
-			if (url) window.open(url, '_blank', 'noopener');
-		},
-		toggleInfo() { this.showInfo = !this.showInfo; this.onActivity(); },
-		zoomIn() { if (this.isVideo) return; this.scale = Math.min(this.scale + 0.2, 5); this.onActivity(); },
-		zoomOut() { if (this.isVideo) return; this.scale = Math.max(this.scale - 0.2, 1); if (this.scale === 1) { this.x = 0; this.y = 0; } this.onActivity(); },
-		toggleDoubleClickZoom() { if (this.isVideo) return; if (this.scale === 1) this.scale = 2; else this.resetView(); this.onActivity(); },
-		resetView() { this.scale = 1; this.x = 0; this.y = 0; this.dragging = false; this.onActivity(); },
-		onWheel(e) { if (this.isVideo) return; e.deltaY < 0 ? this.zoomIn() : this.zoomOut(); },
-		startDrag(e) { if (this.isVideo || this.scale <= 1) return; this.dragging = true; this.startX = e.clientX - this.x; this.startY = e.clientY - this.y; this.onActivity(); },
-		onDrag(e) { if (!this.dragging) return; this.x = e.clientX - this.startX; this.y = e.clientY - this.startY; },
-		stopDrag() { this.dragging = false; },
-		onTouchStart(e) {
-			if (!e.touches || e.touches.length !== 1) return;
-			this.touchStartX = e.touches[0].clientX;
-			this.touchStartY = e.touches[0].clientY;
-			this.onActivity();
-		},
-		onTouchEnd(e) {
-			if (!e.changedTouches || e.changedTouches.length !== 1) return;
-			const endX = e.changedTouches[0].clientX;
-			const endY = e.changedTouches[0].clientY;
-			const dx = endX - this.touchStartX;
-			const dy = endY - this.touchStartY;
-			if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
-				if (dx < 0) this.nextImage();
-				else this.previousImage();
-			}
-		},
-		nextImage() { if (this.hasNext) this.currentIndex++; else this.stopSlideshow(); },
-		previousImage() { if (this.hasPrevious) this.currentIndex--; },
-		toggleSlideshow() { this.slideshowRunning ? this.stopSlideshow() : this.startSlideshow(); this.onActivity(); },
-		startSlideshow() {
-			if (this.slideshowRunning) return;
-			this.slideshowRunning = true;
-			this.timer = setInterval(() => { this.hasNext ? this.currentIndex++ : this.stopSlideshow(); }, 3000);
-		},
-		stopSlideshow() {
-			this.slideshowRunning = false;
-			if (this.timer) { clearInterval(this.timer); this.timer = null; }
-		},
-		onActivity() { this.showUi(); if (this.slideshowRunning) this.startUiHideTimer(); },
-		showUi() { this.uiHidden = false; },
-		startUiHideTimer() {
-			this.clearUiHideTimer();
-			this.uiHideTimer = setTimeout(() => { if (!this.dragging) this.uiHidden = true; }, 2000);
-		},
-		clearUiHideTimer() { if (this.uiHideTimer) { clearTimeout(this.uiHideTimer); this.uiHideTimer = null; } },
-		formatDate(ts) { return ts ? new Date(ts * 1000).toLocaleString() : ''; },
-		formatBytes(b) {
-			if (!b && b !== 0) return '';
-			const u = ['B', 'KB', 'MB', 'GB', 'TB'];
-			let i = 0;
-			let value = b;
-			while (value >= 1024 && i < u.length - 1) { value /= 1024; i++; }
-			return `${value.toFixed(value >= 10 || i === 0 ? 0 : 1)} ${u[i]}`;
-		},
+
 		updateMediaResolution() {
 			if (this.isVideo && this.$refs.videoEl) {
 				this.mediaWidth = this.$refs.videoEl.videoWidth || null
@@ -275,6 +271,179 @@ export default {
 				this.mediaWidth = this.$refs.imageEl.naturalWidth || null
 				this.mediaHeight = this.$refs.imageEl.naturalHeight || null
 			}
+		},
+
+		onFullscreenChange() {
+			this.isFullscreen = !!document.fullscreenElement
+		},
+
+		async toggleFullscreen() {
+			try {
+				if (!document.fullscreenElement) await this.$el.requestFullscreen()
+				else await document.exitFullscreen()
+			} catch (e) { }
+		},
+
+		openInNewTab() {
+			if (!this.currentImage) return
+			const url = this.currentImage.openUrl || this.currentImage.downloadUrl
+			if (url) window.open(url, '_blank', 'noopener')
+		},
+
+		toggleInfo() {
+			this.showInfo = !this.showInfo
+			this.showSharePanel = false
+			this.onActivity()
+		},
+
+		toggleSharePanel() {
+			this.showSharePanel = !this.showSharePanel
+			this.showInfo = false
+			this.onActivity()
+		},
+
+		zoomIn() {
+			if (this.isVideo) return
+			this.scale = Math.min(this.scale + 0.2, 5)
+			this.onActivity()
+		},
+
+		zoomOut() {
+			if (this.isVideo) return
+			this.scale = Math.max(this.scale - 0.2, 1)
+			if (this.scale === 1) {
+				this.x = 0
+				this.y = 0
+			}
+			this.onActivity()
+		},
+
+		toggleDoubleClickZoom() {
+			if (this.isVideo) return
+			if (this.scale === 1) this.scale = 2
+			else this.resetView()
+			this.onActivity()
+		},
+
+		resetView() {
+			this.scale = 1
+			this.x = 0
+			this.y = 0
+			this.dragging = false
+			this.onActivity()
+		},
+
+		onWheel(e) {
+			if (this.isVideo) return
+			e.deltaY < 0 ? this.zoomIn() : this.zoomOut()
+		},
+
+		startDrag(e) {
+			if (this.isVideo || this.scale <= 1) return
+			this.dragging = true
+			this.startX = e.clientX - this.x
+			this.startY = e.clientY - this.y
+			this.onActivity()
+		},
+
+		onDrag(e) {
+			if (!this.dragging) return
+			this.x = e.clientX - this.startX
+			this.y = e.clientY - this.startY
+		},
+
+		stopDrag() {
+			this.dragging = false
+		},
+
+		onTouchStart(e) {
+			if (!e.touches || e.touches.length !== 1) return
+			this.touchStartX = e.touches[0].clientX
+			this.touchStartY = e.touches[0].clientY
+			this.onActivity()
+		},
+
+		onTouchEnd(e) {
+			if (!e.changedTouches || e.changedTouches.length !== 1) return
+
+			const endX = e.changedTouches[0].clientX
+			const endY = e.changedTouches[0].clientY
+			const dx = endX - this.touchStartX
+			const dy = endY - this.touchStartY
+
+			if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+				if (dx < 0) this.nextImage()
+				else this.previousImage()
+			}
+		},
+
+		nextImage() {
+			if (this.hasNext) this.currentIndex++
+			else this.stopSlideshow()
+		},
+
+		previousImage() {
+			if (this.hasPrevious) this.currentIndex--
+		},
+
+		toggleSlideshow() {
+			this.slideshowRunning ? this.stopSlideshow() : this.startSlideshow()
+			this.onActivity()
+		},
+
+		startSlideshow() {
+			if (this.slideshowRunning) return
+			this.slideshowRunning = true
+			this.timer = setInterval(() => {
+				this.hasNext ? this.currentIndex++ : this.stopSlideshow()
+			}, 3000)
+		},
+
+		stopSlideshow() {
+			this.slideshowRunning = false
+			if (this.timer) {
+				clearInterval(this.timer)
+				this.timer = null
+			}
+		},
+
+		onActivity() {
+			this.showUi()
+			if (this.slideshowRunning) this.startUiHideTimer()
+		},
+
+		showUi() {
+			this.uiHidden = false
+		},
+
+		startUiHideTimer() {
+			this.clearUiHideTimer()
+			this.uiHideTimer = setTimeout(() => {
+				if (!this.dragging) this.uiHidden = true
+			}, 2000)
+		},
+
+		clearUiHideTimer() {
+			if (this.uiHideTimer) {
+				clearTimeout(this.uiHideTimer)
+				this.uiHideTimer = null
+			}
+		},
+
+		formatDate(ts) {
+			return ts ? new Date(ts * 1000).toLocaleString() : ''
+		},
+
+		formatBytes(b) {
+			if (!b && b !== 0) return ''
+			const u = ['B', 'KB', 'MB', 'GB', 'TB']
+			let i = 0
+			let value = b
+			while (value >= 1024 && i < u.length - 1) {
+				value /= 1024
+				i++
+			}
+			return `${value.toFixed(value >= 10 || i === 0 ? 0 : 1)} ${u[i]}`
 		},
 	},
 }
