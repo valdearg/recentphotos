@@ -9,7 +9,7 @@
 		</div>
 
 		<div v-else class="grid">
-			<div v-for="(image, index) in images" :key="image.id" class="tile" :title="image.name"
+			<div v-for="(image, index) in images" :key="image.id" class="tile" :title="relativePath(image)"
 				@click="$emit('open', { image, index })">
 				<div class="tile-actions" @click.stop>
 					<a class="tile-icon-link" :href="image.openUrl || image.downloadUrl" target="_blank" rel="noopener"
@@ -50,6 +50,15 @@ export default {
 	methods: {
 		formatDate(ts) {
 			return ts ? new Date(ts * 1000).toLocaleString() : 'Unknown'
+		},
+		relativePath(image) {
+			if (!image || !image.path) {
+				return image?.name || ''
+			}
+
+			return image.path
+				.replace(/^\/[^/]+\/files\//, '')
+				.replace(/^\/+/, '')
 		},
 	},
 }

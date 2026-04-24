@@ -1,12 +1,17 @@
 <template>
 	<div class="recent-photos-app">
-		<header class="toolbar">
-			<div>
+		<div class="top-bar">
+			<div class="top-left">
 				<h1>Recent Photos</h1>
-				<p class="subtitle">A new app with configurable pagination or infinite scroll.</p>
 			</div>
 
-			<div class="toolbar-right">
+			<div class="top-center">
+				<SortControls :sort-by="settings.sortBy" :sort-dir="settings.sortDir"
+					:display-mode="settings.displayMode" :page-size="settings.pageSize"
+					:max-page-size="settings.maxPageSize" @change="onControlsChange" />
+			</div>
+
+			<div class="top-right">
 				<button type="button" class="icon-button" :class="{ 'is-loading': loading }" title="Refresh results"
 					aria-label="Refresh results" @click="refreshResults" :disabled="loading">
 					<svg viewBox="0 0 24 24">
@@ -14,12 +19,9 @@
 					</svg>
 				</button>
 
-				<IndexStatusPanel :status="indexStatus" :busy="rebuildingIndex" @rebuild="rebuildIndex" />
+				<IndexStatusPanel :status="indexStatus" :busy="rebuildingIndex" @rebuild="rebuildIndex" compact />
 			</div>
-		</header>
-
-		<SortControls :sort-by="settings.sortBy" :sort-dir="settings.sortDir" :display-mode="settings.displayMode"
-			:page-size="settings.pageSize" :max-page-size="settings.maxPageSize" @change="onControlsChange" />
+		</div>
 
 		<ImageGrid :images="images" :loading="loading" @open="openViewer" />
 
@@ -122,6 +124,7 @@ export default {
 
 			if (this.settings.displayMode === 'infinite') {
 				await this.loadPage(1, false)
+				this.scrollToTop()
 			} else {
 				await this.loadPage(this.page, false)
 			}
@@ -173,29 +176,36 @@ export default {
 .recent-photos-app {
 	width: 100%;
 	min-height: 100%;
-	padding: 20px;
+	padding: 10px 14px;
 	box-sizing: border-box;
 	overflow: visible;
 }
 
-.toolbar {
-	display: flex;
-	align-items: flex-start;
-	justify-content: space-between;
-	gap: 16px;
-	margin-bottom: 16px;
-	flex-wrap: wrap;
-}
-
-.toolbar-right {
-	display: flex;
+.top-bar {
+	display: grid;
+	grid-template-columns: auto 1fr auto;
 	align-items: center;
 	gap: 12px;
+	margin-bottom: 10px;
 }
 
-.subtitle {
-	opacity: 0.75;
-	margin-top: 4px;
+.top-left h1 {
+	font-size: 16px;
+	font-weight: 600;
+	margin: 0;
+	white-space: nowrap;
+}
+
+.top-center {
+	min-width: 0;
+	display: flex;
+	align-items: center;
+}
+
+.top-right {
+	display: flex;
+	align-items: center;
+	gap: 8px;
 }
 
 .icon-button {
@@ -204,8 +214,8 @@ export default {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 38px;
-	height: 38px;
+	width: 36px;
+	height: 36px;
 	padding: 0;
 	margin: 0;
 	border: 1px solid var(--color-border, rgba(255, 255, 255, 0.25));
@@ -244,6 +254,17 @@ export default {
 
 	to {
 		transform: rotate(360deg);
+	}
+}
+
+@media (max-width: 900px) {
+	.top-bar {
+		grid-template-columns: 1fr;
+		align-items: stretch;
+	}
+
+	.top-right {
+		justify-content: flex-start;
 	}
 }
 </style>

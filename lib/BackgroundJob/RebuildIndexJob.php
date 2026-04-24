@@ -1,30 +1,31 @@
 <?php
+
 declare(strict_types=1);
 
 namespace OCA\RecentPhotos\BackgroundJob;
 
 use OCA\RecentPhotos\Service\ImageIndexService;
-use OCA\RecentPhotos\Service\IndexStatusService;
-use OCP\BackgroundJob\TimedJob;
-use OCP\IUserManager;
+use OCP\BackgroundJob\QueuedJob;
 
-class RebuildIndexJob extends TimedJob {
-    public function __construct(
-        private IUserManager $userManager,
-        private ImageIndexService $imageIndexService,
-        private IndexStatusService $indexStatusService,
-    ) {
-        $this->setInterval(3600);
+class RebuildPathJob extends QueuedJob
+{
+    public function __construct()
+    {
+        parent::__construct();
+        $this->setAllowParallelRuns(false);
     }
 
-    protected function run($argument): void {
-        $this->indexStatusService->setStatus('running');
+    protected function run($argument): void
+    {
+        $userId = is_array($argument) ? ($argument['userId'] ?? null) : null;
+        $path = is_array($argument) ? ($argument['path'] ?? null) : null;
 
-        $total = 0;
-        foreach ($this->userManager->search('') as $user) {
-            $total += $this->imageIndexService->rebuildForUser($user->getUID());
+        if (!is_string($userId) || $userId === '') {
+            return;
         }
 
-        $this->indexStatusService->setStatus('idle', time(), $total);
+        /** @var ImageIndexService $service */
+        $service = \OC::$server->get(ImageIndexService::class);
+        $service->rebuildForUser($userId, is_string($path) && $path !== '' ? $path : null, null);
     }
 }

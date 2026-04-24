@@ -79,7 +79,13 @@ class ImageIndexService
 	): void {
 		foreach ($folder->getDirectoryListing() as $node) {
 			if ($node instanceof Folder) {
-				$this->walkAndIndex($userId, $node, $count, $runStartedAt, $progressCallback);
+				try {
+					$this->walkAndIndex($userId, $node, $count, $runStartedAt, $progressCallback);
+				} catch (\Throwable $e) {
+					if ($progressCallback !== null) {
+						$progressCallback($count, '[folder error] ' . $node->getPath() . ' :: ' . $e->getMessage());
+					}
+				}
 				continue;
 			}
 
@@ -87,16 +93,23 @@ class ImageIndexService
 				continue;
 			}
 
-			$mediaType = $this->classifyMedia($node->getMimeType(), $node->getName());
-			if ($mediaType === null) {
+			try {
+				$mediaType = $this->classifyMedia($node->getMimeType(), $node->getName());
+				if ($mediaType === null) {
+					continue;
+				}
+
+				$this->repository->replaceRow($this->mapFile($userId, $node, $mediaType, $runStartedAt));
+				$count++;
+
+				if ($progressCallback !== null) {
+					$progressCallback($count, $node->getPath());
+				}
+			} catch (\Throwable $e) {
+				if ($progressCallback !== null) {
+					$progressCallback($count, '[file error] ' . $node->getPath() . ' :: ' . $e->getMessage());
+				}
 				continue;
-			}
-
-			$this->repository->replaceRow($this->mapFile($userId, $node, $mediaType, $runStartedAt));
-			$count++;
-
-			if ($progressCallback !== null) {
-				$progressCallback($count, $node->getPath());
 			}
 		}
 	}
@@ -156,7 +169,14 @@ class ImageIndexService
 		}
 
 		try {
-			file_put_contents($tmp, $file->getContent());
+			$content = $file->getContent();
+			if ($content === '' || $content === false) {
+				return null;
+			}
+
+			if (file_put_contents($tmp, $content) === false) {
+				return null;
+			}
 
 			$exif = @exif_read_data($tmp, null, true);
 			if (!is_array($exif)) {
@@ -180,6 +200,8 @@ class ImageIndexService
 				}
 			}
 
+			return null;
+		} catch (\Throwable $e) {
 			return null;
 		} finally {
 			@unlink($tmp);

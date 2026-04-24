@@ -29,7 +29,12 @@ class RebuildIndexCommand extends Command
         $this->setName('recentphotos:rebuild-index')
             ->setDescription('Rebuild the Recent Photos media index')
             ->addOption('user', null, InputOption::VALUE_REQUIRED, 'Only rebuild for a specific user ID')
-            ->addOption('path', null, InputOption::VALUE_REQUIRED, 'Only rebuild a subpath within the user home, e.g. files/Photos');
+            ->addOption(
+                'path',
+                null,
+                InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
+                'Only rebuild one or more subpaths within the user home, e.g. --path="files/Photos"'
+            );
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -38,7 +43,15 @@ class RebuildIndexCommand extends Command
 
         $userOption = $input->getOption('user');
         $pathOption = $input->getOption('path');
-        $path = is_string($pathOption) && trim($pathOption) !== '' ? trim($pathOption, '/') : null;
+
+        $paths = [];
+        if (is_array($pathOption)) {
+            foreach ($pathOption as $path) {
+                if (is_string($path) && trim($path) !== '') {
+                    $paths[] = trim($path, '/');
+                }
+            }
+        }
 
         $users = $this->resolveUsers($userOption);
 
@@ -53,34 +66,73 @@ class RebuildIndexCommand extends Command
         foreach ($users as $user) {
             $userId = $user->getUID();
 
-            if ($path !== null) {
-                $output->writeln(sprintf('Indexing media for %s in path %s ...', $userId, $path));
+            if ($paths !== []) {
+                foreach ($paths as $path) {
+                    $output->writeln(sprintf('Indexing media for %s in path %s ...', $userId, $path));
+
+                    $progress = new ProgressBar($output);
+                    $progress->setFormat('%current% files indexed [%elapsed:6s%] %message%');
+                    $progress->setMessage('starting...');
+                    $progress->start();
+
+                    $count = $this->imageIndexService->rebuildForUser(
+                        $userId,
+                        $path,
+                        function (int $currentCount, string $currentPath) use ($progress, $output): void {
+                            $progress->advance();
+
+                            if (str_starts_with($currentPath, '[file error]') || str_starts_with($currentPath, '[folder error]')) {
+                                $progress->clear();
+                                $output->writeln($currentPath);
+                                $progress->display();
+                                return;
+                            }
+
+                            if ($currentCount % 100 === 0) {
+                                $progress->setMessage($currentPath);
+                            }
+                        }
+                    );
+
+                    $progress->finish();
+                    $output->writeln('');
+                    $output->writeln(sprintf('Finished %s [%s]: %d files indexed', $userId, $path, $count));
+
+                    $grandTotal += $count;
+                }
             } else {
                 $output->writeln(sprintf('Indexing media for %s ...', $userId));
-            }
 
-            $progress = new ProgressBar($output);
-            $progress->setFormat('%current% files indexed [%elapsed:6s%] %message%');
-            $progress->setMessage('starting...');
-            $progress->start();
+                $progress = new ProgressBar($output);
+                $progress->setFormat('%current% files indexed [%elapsed:6s%] %message%');
+                $progress->setMessage('starting...');
+                $progress->start();
 
-            $count = $this->imageIndexService->rebuildForUser(
-                $userId,
-                $path,
-                function (int $currentCount, string $currentPath) use ($progress): void {
-                    $progress->advance();
+                $count = $this->imageIndexService->rebuildForUser(
+                    $userId,
+                    null,
+                    function (int $currentCount, string $currentPath) use ($progress, $output): void {
+                        $progress->advance();
 
-                    if ($currentCount % 100 === 0) {
-                        $progress->setMessage($currentPath);
+                        if (str_starts_with($currentPath, '[file error]') || str_starts_with($currentPath, '[folder error]')) {
+                            $progress->clear();
+                            $output->writeln($currentPath);
+                            $progress->display();
+                            return;
+                        }
+
+                        if ($currentCount % 100 === 0) {
+                            $progress->setMessage($currentPath);
+                        }
                     }
-                }
-            );
+                );
 
-            $progress->finish();
-            $output->writeln('');
-            $output->writeln(sprintf('Finished %s: %d files indexed', $userId, $count));
+                $progress->finish();
+                $output->writeln('');
+                $output->writeln(sprintf('Finished %s: %d files indexed', $userId, $count));
 
-            $grandTotal += $count;
+                $grandTotal += $count;
+            }
         }
 
         $this->indexStatusService->setStatus('idle', time(), $grandTotal);
