@@ -9,6 +9,7 @@ const initialSettings = loadState('recentphotos', 'settings', {
   maxPageSize: 500,
   sortBy: 'date_taken',
   sortDir: 'desc',
+  mediaFilter: 'all',
   availableDisplayModes: ['pagination', 'infinite'],
   availableSortFields: ['date_taken', 'created', 'modified', 'name', 'size'],
   availableSortDirections: ['asc', 'desc'],

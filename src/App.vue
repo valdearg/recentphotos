@@ -7,8 +7,8 @@
 
 			<div class="top-center">
 				<SortControls :sort-by="settings.sortBy" :sort-dir="settings.sortDir"
-					:display-mode="settings.displayMode" :page-size="settings.pageSize"
-					:max-page-size="settings.maxPageSize" @change="onControlsChange" />
+					:media-filter="settings.mediaFilter" :display-mode="settings.displayMode"
+					:page-size="settings.pageSize" :max-page-size="settings.maxPageSize" @change="onControlsChange" />
 			</div>
 
 			<div class="top-right">
@@ -77,7 +77,10 @@ export default {
 	},
 	data() {
 		return {
-			settings: { ...this.initialSettings },
+			settings: {
+				mediaFilter: 'all',
+				...this.initialSettings,
+			},
 			indexStatus: { ...this.initialIndexStatus },
 			images: [],
 			page: 1,
@@ -102,6 +105,7 @@ export default {
 						limit: this.settings.pageSize,
 						sortBy: this.settings.sortBy,
 						sortDir: this.settings.sortDir,
+						mediaFilter: this.settings.mediaFilter,
 					},
 				})
 
@@ -146,6 +150,12 @@ export default {
 			}
 		},
 
+		async refreshAndTop() {
+			if (this.loading) return
+			await this.loadPage(1, false)
+			this.scrollToTop()
+		},
+
 		async goToPage(page) {
 			if (page < 1 || page > this.pages || this.loading) return
 			this.scrollToTop()
@@ -162,9 +172,7 @@ export default {
 			this.settings = { ...this.settings, ...changes }
 			await axios.post(generateUrl('/apps/recentphotos/api/settings/personal'), this.settings)
 			await this.loadPage(1, false)
-			if (this.settings.displayMode === 'pagination') {
-				this.scrollToTop()
-			}
+			this.scrollToTop()
 		},
 
 		async rebuildIndex() {
@@ -183,13 +191,6 @@ export default {
 
 		closeViewer() {
 			this.viewerOpen = false
-		},
-
-		async refreshAndTop() {
-			if (this.loading) return
-
-			await this.loadPage(1, false)
-			this.scrollToTop()
 		},
 	},
 }
@@ -266,7 +267,8 @@ export default {
 	fill: none;
 }
 
-.icon-button.is-loading svg {
+.icon-button.is-loading svg,
+.spinning {
 	animation: recentphotos-spin 0.9s linear infinite;
 }
 
@@ -312,10 +314,6 @@ export default {
 	stroke: currentColor;
 	stroke-width: 2;
 	fill: none;
-}
-
-.spinning {
-	animation: recentphotos-spin 0.9s linear infinite;
 }
 
 @keyframes recentphotos-spin {

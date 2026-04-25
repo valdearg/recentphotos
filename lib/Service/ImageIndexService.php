@@ -31,7 +31,6 @@ class ImageIndexService
 		$count = 0;
 		$this->walkAndIndex($userId, $folder, $count, $runStartedAt, $progressCallback);
 
-		// Only do stale cleanup for full-user rebuilds.
 		if ($relativePath === null || trim($relativePath) === '') {
 			$this->repository->deleteStaleForUser($userId, $runStartedAt);
 		}
@@ -60,9 +59,9 @@ class ImageIndexService
 			return $userFolder;
 		}
 
-		$normalized = trim($relativePath, '/');
-
+		$normalized = trim($relativePath);
 		$nodes = $userFolder->get($normalized);
+
 		if ($nodes instanceof Folder) {
 			return $nodes;
 		}

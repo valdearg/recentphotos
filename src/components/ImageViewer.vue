@@ -79,8 +79,10 @@
 			<div ref="imageWrap" class="viewer-image-wrap" @wheel.prevent="onWheel" @mousedown="startDrag"
 				@mousemove="onDrag" @mouseup="stopDrag" @mouseleave="stopDrag" @dblclick.stop="toggleDoubleClickZoom"
 				@touchstart.passive="onTouchStart" @touchend.passive="onTouchEnd">
+
 				<video v-if="isVideo && currentImage" ref="videoEl" class="viewer-video" :src="currentImage.fullUrl"
-					controls playsinline @click.stop @loadedmetadata="updateMediaResolution"></video>
+					controls autoplay loop muted playsinline @click.stop
+					@loadedmetadata="updateMediaResolution"></video>
 
 				<img v-else-if="currentImage" ref="imageEl" class="viewer-image" :src="currentImage.fullUrl"
 					:alt="currentImage.name" :style="imageStyle" draggable="false" @click.stop
@@ -201,6 +203,10 @@ export default {
 				this.$emit('load-more')
 			}
 
+			if (this.$refs.videoEl) {
+				this.$refs.videoEl.pause()
+			}
+
 			this.onActivity()
 		},
 
@@ -265,6 +271,11 @@ export default {
 				this.mediaWidth = this.$refs.videoEl.videoWidth || null
 				this.mediaHeight = this.$refs.videoEl.videoHeight || null
 				return
+			}
+
+			if (this.isVideo && this.$refs.videoEl) {
+				this.$refs.videoEl.currentTime = 0
+				this.$refs.videoEl.play().catch(() => { })
 			}
 
 			if (this.$refs.imageEl) {

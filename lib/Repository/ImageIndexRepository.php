@@ -32,8 +32,8 @@ class ImageIndexRepository
         $this->mapper->upsert($row);
     }
 
-    public function getPage(string $userId, int $page, int $limit, string $sortBy, string $sortDir): array
+    public function getPage(string $userId, int $page, int $limit, string $sortBy, string $sortDir, string $mediaFilter = 'all'): array
     {
-        return $this->mapper->getPage($userId, $page, $limit, $sortBy, $sortDir);
+        return $this->mapper->getPage($userId, $page, $limit, $sortBy, $sortDir, $mediaFilter);
     }
 }

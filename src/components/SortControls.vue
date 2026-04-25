@@ -20,6 +20,16 @@
     </label>
 
     <label class="control-group">
+      <span>Media</span>
+      <select :value="mediaFilter" @change="emitChange('mediaFilter', $event.target.value)">
+        <option value="all">All</option>
+        <option value="image">Images</option>
+        <option value="gif">GIFs</option>
+        <option value="video">Videos</option>
+      </select>
+    </label>
+
+    <label class="control-group">
       <span>Display mode</span>
       <select :value="displayMode" @change="emitChange('displayMode', $event.target.value)">
         <option value="pagination">Pagination</option>
@@ -41,6 +51,7 @@ export default {
   props: {
     sortBy: { type: String, required: true },
     sortDir: { type: String, required: true },
+    mediaFilter: { type: String, required: true },
     displayMode: { type: String, required: true },
     pageSize: { type: Number, required: true },
     maxPageSize: { type: Number, required: true },

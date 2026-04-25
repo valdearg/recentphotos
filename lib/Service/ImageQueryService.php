@@ -8,13 +8,31 @@ use OCA\RecentPhotos\Repository\ImageIndexRepository;
 
 class ImageQueryService
 {
-	public function __construct(private ImageIndexRepository $repository) {}
+	public function __construct(
+		private ImageIndexRepository $repository,
+	) {}
 
-	public function getImages(string $uid, int $page, int $limit, string $sortBy, string $sortDir): array
-	{
-		[$rows, $total] = $this->repository->getPage($uid, $page, $limit, $sortBy, $sortDir);
+	public function getImages(
+		string $uid,
+		int $page,
+		int $limit,
+		string $sortBy,
+		string $sortDir,
+		string $mediaFilter = 'all'
+	): array {
+		[$rows, $total] = $this->repository->getPage($uid, $page, $limit, $sortBy, $sortDir, $mediaFilter);
 		$pages = max(1, (int)ceil($total / $limit));
-		return ['page' => $page, 'limit' => $limit, 'total' => $total, 'pages' => $pages, 'sortBy' => $sortBy, 'sortDir' => $sortDir, 'items' => array_map([$this, 'mapRow'], $rows)];
+
+		return [
+			'page' => $page,
+			'limit' => $limit,
+			'total' => $total,
+			'pages' => $pages,
+			'sortBy' => $sortBy,
+			'sortDir' => $sortDir,
+			'mediaFilter' => $mediaFilter,
+			'items' => array_map([$this, 'mapRow'], $rows),
+		];
 	}
 
 	private function mapRow(array $row): array

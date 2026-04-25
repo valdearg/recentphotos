@@ -67,27 +67,50 @@ class ImageIndexMapper extends QBMapper
 		$this->insert($entity);
 	}
 
-	public function getPage(string $userId, int $page, int $limit, string $sortBy, string $sortDir): array
-	{
+	public function getPage(
+		string $userId,
+		int $page,
+		int $limit,
+		string $sortBy,
+		string $sortDir,
+		string $mediaFilter = 'all'
+	): array {
 		$allowedSort = ['date_taken', 'created', 'modified', 'name', 'size'];
 		if (!in_array($sortBy, $allowedSort, true)) {
 			$sortBy = 'date_taken';
 		}
-		$sortDir = strtolower($sortDir) === 'asc' ? 'ASC' : 'DESC';
 
+		$allowedMedia = ['all', 'image', 'gif', 'video'];
+		if (!in_array($mediaFilter, $allowedMedia, true)) {
+			$mediaFilter = 'all';
+		}
+
+		$sortDir = strtolower($sortDir) === 'asc' ? 'ASC' : 'DESC';
 		$offset = ($page - 1) * $limit;
 
 		$qb = $this->db->getQueryBuilder();
-		$qb->select('*')->from('recentphotos_index')
+		$qb->select('*')
+			->from('recentphotos_index')
 			->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId)))
 			->orderBy($sortBy, $sortDir)
 			->setFirstResult($offset)
 			->setMaxResults($limit);
+
+		if ($mediaFilter !== 'all') {
+			$qb->andWhere($qb->expr()->eq('media_type', $qb->createNamedParameter($mediaFilter)));
+		}
+
 		$rows = $qb->executeQuery()->fetchAllAssociative();
 
 		$countQb = $this->db->getQueryBuilder();
-		$countQb->selectAlias($countQb->func()->count('*'), 'total')->from('recentphotos_index')
+		$countQb->selectAlias($countQb->func()->count('*'), 'total')
+			->from('recentphotos_index')
 			->where($countQb->expr()->eq('user_id', $countQb->createNamedParameter($userId)));
+
+		if ($mediaFilter !== 'all') {
+			$countQb->andWhere($countQb->expr()->eq('media_type', $countQb->createNamedParameter($mediaFilter)));
+		}
+
 		$total = (int)$countQb->executeQuery()->fetchOne();
 
 		return [$rows, $total];
