@@ -10,9 +10,11 @@ use OCP\IUser;
 use OCP\IUserManager;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
+use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Terminal;
 
 class RebuildIndexCommand extends Command
 {
@@ -33,7 +35,7 @@ class RebuildIndexCommand extends Command
                 'path',
                 null,
                 InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
-                'Only rebuild one or more subpaths within the user home, e.g. --path="files/Photos"'
+                'Only rebuild one or more subpaths, e.g. --path="/Photos/Pixiv"'
             );
     }
 
@@ -48,7 +50,7 @@ class RebuildIndexCommand extends Command
         if (is_array($pathOption)) {
             foreach ($pathOption as $path) {
                 if (is_string($path) && trim($path) !== '') {
-                    $paths[] = trim($path, '/');
+                    $paths[] = trim($path);
                 }
             }
         }
@@ -61,7 +63,7 @@ class RebuildIndexCommand extends Command
             return Command::FAILURE;
         }
 
-        $grandTotal = 0;
+        $grandStats = $this->emptyStats();
 
         foreach ($users as $user) {
             $userId = $user->getUID();
@@ -69,81 +71,69 @@ class RebuildIndexCommand extends Command
             if ($paths !== []) {
                 foreach ($paths as $path) {
                     $output->writeln(sprintf('Indexing media for %s in path %s ...', $userId, $path));
-
-                    $progress = new ProgressBar($output);
-                    $progress->setFormat('%current% files indexed [%elapsed:6s%] %message%');
-                    $progress->setMessage('starting...');
-                    $progress->start();
-
-                    $count = $this->imageIndexService->rebuildForUser(
-                        $userId,
-                        $path,
-                        function (int $currentCount, string $currentPath) use ($progress, $output): void {
-                            $progress->advance();
-
-                            if (str_starts_with($currentPath, '[file error]') || str_starts_with($currentPath, '[folder error]')) {
-                                $progress->clear();
-                                $output->writeln($currentPath);
-                                $progress->display();
-                                return;
-                            }
-
-                            if ($currentCount % 100 === 0) {
-                                $progress->setMessage($currentPath);
-                            }
-                        }
-                    );
-
-                    $progress->finish();
-                    $output->writeln('');
-                    $output->writeln(sprintf('Finished %s [%s]: %d files indexed', $userId, $path, $count));
-
-                    $grandTotal += $count;
+                    $stats = $this->runIndex($output, $userId, $path);
+                    $this->mergeStats($grandStats, $stats);
                 }
             } else {
                 $output->writeln(sprintf('Indexing media for %s ...', $userId));
-
-                $progress = new ProgressBar($output);
-                $progress->setFormat('%current% files indexed [%elapsed:6s%] %message%');
-                $progress->setMessage('starting...');
-                $progress->start();
-
-                $count = $this->imageIndexService->rebuildForUser(
-                    $userId,
-                    null,
-                    function (int $currentCount, string $currentPath) use ($progress, $output): void {
-                        $progress->advance();
-
-                        if (str_starts_with($currentPath, '[file error]') || str_starts_with($currentPath, '[folder error]')) {
-                            $progress->clear();
-                            $output->writeln($currentPath);
-                            $progress->display();
-                            return;
-                        }
-
-                        if ($currentCount % 100 === 0) {
-                            [$termWidth] = $output->getTerminalDimensions();
-
-                            // Reserve space for progress text (~40 chars safety buffer)
-                            $maxPathLength = max(30, $termWidth - 50);
-
-                            $progress->setMessage($this->formatProgressPath($currentPath, $maxPathLength));
-                        }
-                    }
-                );
-
-                $progress->finish();
-                $output->writeln('');
-                $output->writeln(sprintf('Finished %s: %d files indexed', $userId, $count));
-
-                $grandTotal += $count;
+                $stats = $this->runIndex($output, $userId, null);
+                $this->mergeStats($grandStats, $stats);
             }
         }
 
-        $this->indexStatusService->setStatus('idle', time(), $grandTotal);
-        $output->writeln(sprintf('Done. Indexed %d files in total.', $grandTotal));
+        $this->indexStatusService->setStatus('idle', time(), (int)$grandStats['files']);
+        $output->writeln(sprintf('Done. Indexed %d files in total.', (int)$grandStats['files']));
+
+        if (count($users) > 1 || count($paths) > 1) {
+            $output->writeln('');
+            $output->writeln('Total:');
+            $this->renderStatsTable($output, $grandStats, (int)($grandStats['elapsed'] ?? 0));
+        }
 
         return Command::SUCCESS;
+    }
+
+    private function runIndex(OutputInterface $output, string $userId, ?string $path): array
+    {
+        $started = microtime(true);
+
+        $terminal = new Terminal();
+
+        $progress = new ProgressBar($output);
+        $progress->setFormat('%current% files indexed [%elapsed:6s%] %message%');
+        $progress->setMessage('starting...');
+        $progress->start();
+
+        $stats = $this->imageIndexService->rebuildForUser(
+            $userId,
+            $path,
+            function (int $currentCount, string $currentPath) use ($progress, $output, $terminal): void {
+                $progress->advance();
+
+                if (str_starts_with($currentPath, '[file error]') || str_starts_with($currentPath, '[folder error]')) {
+                    $progress->clear();
+                    $output->writeln($currentPath);
+                    $progress->display();
+                    return;
+                }
+
+                if ($currentCount % 100 === 0) {
+                    $termWidth = $terminal->getWidth() ?: 120;
+                    $maxPathLength = max(30, $termWidth - 50);
+                    $progress->setMessage($this->formatProgressPath($currentPath, $maxPathLength));
+                }
+            }
+        );
+
+        $elapsed = (int)round(microtime(true) - $started);
+        $stats['elapsed'] = $elapsed;
+
+        $progress->finish();
+        $output->writeln('');
+        $this->renderStatsTable($output, $stats, $elapsed);
+        $output->writeln('');
+
+        return $stats;
     }
 
     /**
@@ -157,6 +147,53 @@ class RebuildIndexCommand extends Command
         }
 
         return array_values($this->userManager->search(''));
+    }
+
+    private function emptyStats(): array
+    {
+        return [
+            'folders' => 0,
+            'files' => 0,
+            'new' => 0,
+            'updated' => 0,
+            'removed' => 0,
+            'errors' => 0,
+            'elapsed' => 0,
+        ];
+    }
+
+    private function mergeStats(array &$target, array $source): void
+    {
+        foreach ($this->emptyStats() as $key => $_) {
+            $target[$key] = (int)($target[$key] ?? 0) + (int)($source[$key] ?? 0);
+        }
+    }
+
+    private function renderStatsTable(OutputInterface $output, array $stats, int $elapsedSeconds): void
+    {
+        $table = new Table($output);
+        $table
+            ->setHeaders(['Folders', 'Files', 'New', 'Updated', 'Removed', 'Errors', 'Elapsed time'])
+            ->setRows([[
+                (string)($stats['folders'] ?? 0),
+                (string)($stats['files'] ?? 0),
+                (string)($stats['new'] ?? 0),
+                (string)($stats['updated'] ?? 0),
+                (string)($stats['removed'] ?? 0),
+                (string)($stats['errors'] ?? 0),
+                $this->formatElapsed($elapsedSeconds),
+            ]]);
+
+        $table->render();
+    }
+
+    private function formatElapsed(int $seconds): string
+    {
+        $hours = intdiv($seconds, 3600);
+        $minutes = intdiv($seconds % 3600, 60);
+        $secs = $seconds % 60;
+
+        return sprintf('%02d:%02d:%02d', $hours, $minutes, $secs);
     }
 
     private function formatProgressPath(string $path, int $maxLength): string

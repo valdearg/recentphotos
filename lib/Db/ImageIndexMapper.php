@@ -30,6 +30,17 @@ class ImageIndexMapper extends QBMapper
 		$qb->executeStatement();
 	}
 
+	public function existsByFileId(int $fileId): bool
+	{
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('id')
+			->from('recentphotos_index')
+			->where($qb->expr()->eq('file_id', $qb->createNamedParameter($fileId)))
+			->setMaxResults(1);
+
+		return $qb->executeQuery()->fetchOne() !== false;
+	}
+
 	public function deleteStaleForUser(string $userId, int $runStartedAt): int
 	{
 		$qb = $this->db->getQueryBuilder();
@@ -47,8 +58,10 @@ class ImageIndexMapper extends QBMapper
 		return $qb->executeStatement();
 	}
 
-	public function upsert(array $row): void
+	public function upsert(array $row): string
 	{
+		$exists = $this->existsByFileId((int)$row['fileId']);
+
 		$this->deleteByFileId((int)$row['fileId']);
 
 		$entity = new ImageIndex();
@@ -65,6 +78,8 @@ class ImageIndexMapper extends QBMapper
 		$entity->setLastSeenAt(isset($row['lastSeenAt']) ? (int)$row['lastSeenAt'] : null);
 
 		$this->insert($entity);
+
+		return $exists ? 'updated' : 'new';
 	}
 
 	public function getPage(

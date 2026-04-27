@@ -27,13 +27,19 @@ class ImageIndexRepository
         return $this->mapper->deleteStaleForUser($userId, $runStartedAt);
     }
 
-    public function replaceRow(array $row): void
+    public function replaceRow(array $row): string
     {
-        $this->mapper->upsert($row);
+        return $this->mapper->upsert($row);
     }
 
-    public function getPage(string $userId, int $page, int $limit, string $sortBy, string $sortDir, string $mediaFilter = 'all'): array
-    {
+    public function getPage(
+        string $userId,
+        int $page,
+        int $limit,
+        string $sortBy,
+        string $sortDir,
+        string $mediaFilter = 'all'
+    ): array {
         return $this->mapper->getPage($userId, $page, $limit, $sortBy, $sortDir, $mediaFilter);
     }
 }

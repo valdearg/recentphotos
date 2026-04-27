@@ -23,19 +23,29 @@ class ImageIndexService
 		string $userId,
 		?string $relativePath = null,
 		?callable $progressCallback = null
-	): int {
+	): array {
 		$userFolder = $this->rootFolder->getUserFolder($userId);
 		$folder = $this->resolveFolder($userFolder, $relativePath);
 		$runStartedAt = time();
 
-		$count = 0;
-		$this->walkAndIndex($userId, $folder, $count, $runStartedAt, $progressCallback);
+		$stats = [
+			'folders' => 0,
+			'files' => 0,
+			'new' => 0,
+			'updated' => 0,
+			'removed' => 0,
+			'errors' => 0,
+		];
 
+		$this->walkAndIndex($userId, $folder, $stats, $runStartedAt, $progressCallback);
+
+		// Only remove stale records on full-user rebuilds.
+		// Path-scoped rebuilds are intentionally non-destructive.
 		if ($relativePath === null || trim($relativePath) === '') {
-			$this->repository->deleteStaleForUser($userId, $runStartedAt);
+			$stats['removed'] = $this->repository->deleteStaleForUser($userId, $runStartedAt);
 		}
 
-		return $count;
+		return $stats;
 	}
 
 	public function indexFile(string $userId, File $file): void
@@ -72,17 +82,30 @@ class ImageIndexService
 	private function walkAndIndex(
 		string $userId,
 		Folder $folder,
-		int &$count,
+		array &$stats,
 		int $runStartedAt,
 		?callable $progressCallback = null
 	): void {
-		foreach ($folder->getDirectoryListing() as $node) {
+		$stats['folders']++;
+
+		try {
+			$listing = $folder->getDirectoryListing();
+		} catch (\Throwable $e) {
+			$stats['errors']++;
+			if ($progressCallback !== null) {
+				$progressCallback($stats['files'], '[folder error] ' . $folder->getPath() . ' :: ' . $e->getMessage());
+			}
+			return;
+		}
+
+		foreach ($listing as $node) {
 			if ($node instanceof Folder) {
 				try {
-					$this->walkAndIndex($userId, $node, $count, $runStartedAt, $progressCallback);
+					$this->walkAndIndex($userId, $node, $stats, $runStartedAt, $progressCallback);
 				} catch (\Throwable $e) {
+					$stats['errors']++;
 					if ($progressCallback !== null) {
-						$progressCallback($count, '[folder error] ' . $node->getPath() . ' :: ' . $e->getMessage());
+						$progressCallback($stats['files'], '[folder error] ' . $node->getPath() . ' :: ' . $e->getMessage());
 					}
 				}
 				continue;
@@ -98,15 +121,25 @@ class ImageIndexService
 					continue;
 				}
 
-				$this->repository->replaceRow($this->mapFile($userId, $node, $mediaType, $runStartedAt));
-				$count++;
+				$result = $this->repository->replaceRow(
+					$this->mapFile($userId, $node, $mediaType, $runStartedAt)
+				);
+
+				$stats['files']++;
+
+				if ($result === 'new') {
+					$stats['new']++;
+				} else {
+					$stats['updated']++;
+				}
 
 				if ($progressCallback !== null) {
-					$progressCallback($count, $node->getPath());
+					$progressCallback($stats['files'], $node->getPath());
 				}
 			} catch (\Throwable $e) {
+				$stats['errors']++;
 				if ($progressCallback !== null) {
-					$progressCallback($count, '[file error] ' . $node->getPath() . ' :: ' . $e->getMessage());
+					$progressCallback($stats['files'], '[file error] ' . $node->getPath() . ' :: ' . $e->getMessage());
 				}
 				continue;
 			}
