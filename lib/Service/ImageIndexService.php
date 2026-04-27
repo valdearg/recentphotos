@@ -22,7 +22,8 @@ class ImageIndexService
 	public function rebuildForUser(
 		string $userId,
 		?string $relativePath = null,
-		?callable $progressCallback = null
+		?callable $progressCallback = null,
+		bool $deleteStale = false
 	): array {
 		$userFolder = $this->rootFolder->getUserFolder($userId);
 		$folder = $this->resolveFolder($userFolder, $relativePath);
@@ -43,6 +44,12 @@ class ImageIndexService
 		// Path-scoped rebuilds are intentionally non-destructive.
 		if ($relativePath === null || trim($relativePath) === '') {
 			$stats['removed'] = $this->repository->deleteStaleForUser($userId, $runStartedAt);
+		} elseif ($deleteStale) {
+			$stats['removed'] = $this->repository->deleteStaleForUserPath(
+				$userId,
+				$folder->getPath(),
+				$runStartedAt
+			);
 		}
 
 		return $stats;

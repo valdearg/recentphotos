@@ -82,6 +82,26 @@ class ImageIndexMapper extends QBMapper
 		return $exists ? 'updated' : 'new';
 	}
 
+	public function deleteStaleForUserPath(string $userId, string $pathPrefix, int $runStartedAt): int
+	{
+		$qb = $this->db->getQueryBuilder();
+		$expr = $qb->expr();
+
+		$prefix = rtrim($pathPrefix, '/') . '/';
+
+		$qb->delete('recentphotos_index')
+			->where($expr->eq('user_id', $qb->createNamedParameter($userId)))
+			->andWhere($expr->like('path', $qb->createNamedParameter($prefix . '%')))
+			->andWhere(
+				$expr->orX(
+					$expr->lt('last_seen_at', $qb->createNamedParameter($runStartedAt)),
+					$expr->isNull('last_seen_at')
+				)
+			);
+
+		return $qb->executeStatement();
+	}
+
 	public function getPage(
 		string $userId,
 		int $page,

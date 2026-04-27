@@ -32,6 +32,11 @@ class ImageIndexRepository
         return $this->mapper->upsert($row);
     }
 
+    public function deleteStaleForUserPath(string $userId, string $pathPrefix, int $runStartedAt): int
+    {
+        return $this->mapper->deleteStaleForUserPath($userId, $pathPrefix, $runStartedAt);
+    }
+
     public function getPage(
         string $userId,
         int $page,
