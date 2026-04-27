@@ -142,6 +142,8 @@ export default {
 		async refreshResults() {
 			if (this.loading) return
 
+			await this.loadIndexStatus()
+
 			if (this.settings.displayMode === 'infinite') {
 				await this.loadPage(1, false)
 				this.scrollToTop()
@@ -152,6 +154,8 @@ export default {
 
 		async refreshAndTop() {
 			if (this.loading) return
+
+			await this.loadIndexStatus()
 			await this.loadPage(1, false)
 			this.scrollToTop()
 		},
@@ -179,6 +183,7 @@ export default {
 			this.rebuildingIndex = true
 			try {
 				await axios.post(generateUrl('/apps/recentphotos/api/index/rebuild'))
+				await this.loadIndexStatus()
 			} finally {
 				this.rebuildingIndex = false
 			}
@@ -191,6 +196,15 @@ export default {
 
 		closeViewer() {
 			this.viewerOpen = false
+		},
+
+		async loadIndexStatus() {
+			try {
+				const response = await axios.get(generateUrl('/apps/recentphotos/api/index/status'))
+				this.indexStatus = response.data
+			} catch (e) {
+				// Keep existing status if refresh fails
+			}
 		},
 	},
 }

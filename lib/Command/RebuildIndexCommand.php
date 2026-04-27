@@ -122,7 +122,12 @@ class RebuildIndexCommand extends Command
                         }
 
                         if ($currentCount % 100 === 0) {
-                            $progress->setMessage($currentPath);
+                            [$termWidth] = $output->getTerminalDimensions();
+
+                            // Reserve space for progress text (~40 chars safety buffer)
+                            $maxPathLength = max(30, $termWidth - 50);
+
+                            $progress->setMessage($this->formatProgressPath($currentPath, $maxPathLength));
                         }
                     }
                 );
@@ -152,5 +157,38 @@ class RebuildIndexCommand extends Command
         }
 
         return array_values($this->userManager->search(''));
+    }
+
+    private function formatProgressPath(string $path, int $maxLength): string
+    {
+        $path = preg_replace('#^/[^/]+/files/#', '', $path) ?? $path;
+
+        $parts = explode('/', trim($path, '/'));
+        $filename = array_pop($parts) ?: $path;
+
+        $folderParts = array_slice($parts, -2);
+        $folder = implode('/', $folderParts);
+
+        $message = $folder !== ''
+            ? $folder . ' → ' . $filename
+            : $filename;
+
+        if (mb_strlen($message) <= $maxLength) {
+            return $message;
+        }
+
+        $filenameMax = max(20, (int)($maxLength * 0.55));
+        if (mb_strlen($filename) > $filenameMax) {
+            $filename = '…' . mb_substr($filename, - ($filenameMax - 1));
+        }
+
+        $folderMax = max(8, $maxLength - mb_strlen($filename) - 3);
+        if (mb_strlen($folder) > $folderMax) {
+            $folder = '…' . mb_substr($folder, - ($folderMax - 1));
+        }
+
+        return $folder !== ''
+            ? $folder . ' → ' . $filename
+            : $filename;
     }
 }
