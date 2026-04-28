@@ -35,7 +35,8 @@
 		</div>
 
 		<div v-if="loading && images.length > 0" class="loading-more">
-			Loading more…
+			<span class="loading-spinner" aria-hidden="true"></span>
+			<span>Fetching more photos</span>
 		</div>
 	</div>
 </template>
@@ -163,5 +164,34 @@ export default {
 .empty-state,
 .loading-more {
 	padding: 20px 0;
+}
+
+.loading-more {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	color: var(--color-text-maxcontrast, currentColor);
+	font-size: 13px;
+	font-weight: 500;
+}
+
+.loading-spinner {
+	width: 16px;
+	height: 16px;
+	border: 2px solid var(--color-border, rgba(128, 128, 128, 0.35));
+	border-top-color: var(--color-primary-element, currentColor);
+	border-radius: 999px;
+	animation: recentphotos-loading-spin 0.8s linear infinite;
+}
+
+@keyframes recentphotos-loading-spin {
+	from {
+		transform: rotate(0deg);
+	}
+
+	to {
+		transform: rotate(360deg);
+	}
 }
 </style>

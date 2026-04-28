@@ -87,6 +87,7 @@ export default {
 			pages: 1,
 			total: 0,
 			loading: false,
+			loadingNextPage: null,
 			rebuildingIndex: false,
 			viewerOpen: false,
 			viewerIndex: 0,
@@ -169,7 +170,16 @@ export default {
 
 		async loadNextPage() {
 			if (this.loading || this.page >= this.pages) return
-			await this.loadPage(this.page + 1, true)
+
+			const nextPage = this.page + 1
+			if (this.loadingNextPage === nextPage) return
+
+			this.loadingNextPage = nextPage
+			try {
+				await this.loadPage(nextPage, true)
+			} finally {
+				this.loadingNextPage = null
+			}
 		},
 
 		async onControlsChange(changes) {

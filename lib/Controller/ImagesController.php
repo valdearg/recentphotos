@@ -56,6 +56,7 @@ class ImagesController extends Controller
 			$sortBy,
 			$sortDir,
 			$mediaFilter,
+			$user,
 		);
 
 		return new DataResponse($result);

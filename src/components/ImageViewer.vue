@@ -108,6 +108,16 @@
 			<div><strong>Resolution:</strong> {{ mediaWidth && mediaHeight ? `${mediaWidth} × ${mediaHeight}` :
 				'Unknown' }}</div>
 			<div><strong>MIME:</strong> {{ currentImage.mime }}</div>
+			<div v-if="currentImage.folderTags && currentImage.folderTags.length" class="viewer-info-tags">
+				<strong>Folder tags:</strong>
+				<span class="tag-list">
+					<a v-for="tag in currentImage.folderTags" :key="tag.id" class="folder-tag" :href="tagUrl(tag)"
+						:style="tagStyle(tag)" target="_blank" rel="noopener" title="Open tagged files"
+						@click.stop>
+						{{ tag.name }}
+					</a>
+				</span>
+			</div>
 			<div><strong>Path:</strong> {{ currentImage.path }}</div>
 			<div v-if="!isVideo"><strong>Zoom:</strong> {{ Math.round(scale * 100) }}%</div>
 		</div>
@@ -121,6 +131,7 @@
 </template>
 
 <script>
+import { generateUrl } from '@nextcloud/router'
 import SharePanel from './SharePanel.vue';
 
 export default {
@@ -456,6 +467,24 @@ export default {
 			}
 			return `${value.toFixed(value >= 10 || i === 0 ? 0 : 1)} ${u[i]}`
 		},
+
+		tagStyle(tag) {
+			if (!tag || !tag.color) return {}
+
+			const color = String(tag.color).trim()
+			if (!/^#?[0-9a-f]{6}$/i.test(color)) return {}
+
+			const normalized = color.startsWith('#') ? color : `#${color}`
+			return {
+				borderColor: normalized,
+				backgroundColor: `${normalized}26`,
+			}
+		},
+
+		tagUrl(tag) {
+			const tagId = encodeURIComponent(tag?.id || '')
+			return `${generateUrl(`/apps/files/tags/${tagId}`)}?dir=%2F${tagId}`
+		},
 	},
 }
 </script>
@@ -626,14 +655,69 @@ export default {
 	position: absolute;
 	top: 76px;
 	right: 20px;
-	background: rgba(0, 0, 0, 0.7);
-	padding: 12px;
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 4px;
+	background: rgba(10, 10, 10, 0.82);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	padding: 14px;
 	color: white;
-	border-radius: 10px;
-	max-width: min(420px, calc(100vw - 40px));
-	line-height: 1.5;
+	border-radius: 8px;
+	max-width: min(540px, calc(100vw - 40px));
+	line-height: 1.4;
 	word-break: break-word;
+	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.32);
+	backdrop-filter: blur(6px);
 	transition: opacity 0.2s ease;
+}
+
+.viewer-info>div {
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr);
+	column-gap: 8px;
+	align-items: baseline;
+	min-width: 0;
+}
+
+.viewer-info strong {
+	white-space: nowrap;
+	color: rgba(255, 255, 255, 0.86);
+}
+
+.viewer-info-tags {
+	align-items: flex-start;
+}
+
+.tag-list {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: 5px;
+	min-width: 0;
+}
+
+.folder-tag {
+	display: inline-flex;
+	align-items: center;
+	max-width: 100%;
+	padding: 2px 8px;
+	border: 1px solid rgba(255, 255, 255, 0.18);
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.08);
+	color: rgba(255, 255, 255, 0.92);
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 1.45;
+	text-decoration: none;
+	overflow-wrap: anywhere;
+	transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.folder-tag:hover,
+.folder-tag:focus-visible {
+	background: rgba(255, 255, 255, 0.16);
+	border-color: rgba(255, 255, 255, 0.38);
+	color: white;
+	text-decoration: none;
 }
 
 .viewer-footer {
