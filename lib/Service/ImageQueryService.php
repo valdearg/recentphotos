@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\RecentPhotos\Service;
 
 use OCA\RecentPhotos\Repository\ImageIndexRepository;
+use OCP\Files\File;
 use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
 use OCP\IUser;
@@ -31,6 +32,8 @@ class ImageQueryService
 		?IUser $user = null,
 	): array {
 		[$rows, $total] = $this->repository->getPage($uid, $page, $limit, $sortBy, $sortDir, $mediaFilter);
+		[$rows, $removed] = $this->filterExistingRows($uid, $rows);
+		$total = max(0, $total - $removed);
 		$pages = max(1, (int)ceil($total / $limit));
 		$folderTags = $this->getFolderTagsForRows($uid, $rows, $user);
 
@@ -47,6 +50,53 @@ class ImageQueryService
 				$rows,
 			),
 		];
+	}
+
+	private function filterExistingRows(string $uid, array $rows): array
+	{
+		if ($uid === '' || $rows === []) {
+			return [$rows, 0];
+		}
+
+		$validRows = [];
+		$removed = 0;
+
+		foreach ($rows as $row) {
+			$fileId = (int)($row['file_id'] ?? 0);
+			if ($fileId <= 0 || !$this->fileExistsForUser($fileId, $uid)) {
+				if ($fileId > 0) {
+					$this->repository->deleteByFileId($fileId);
+				}
+				$removed++;
+				continue;
+			}
+
+			$validRows[] = $row;
+		}
+
+		return [$validRows, $removed];
+	}
+
+	private function fileExistsForUser(int $fileId, string $uid): bool
+	{
+		try {
+			$nodes = $this->rootFolder->getById($fileId);
+		} catch (\Throwable $e) {
+			return false;
+		}
+
+		foreach ($nodes as $node) {
+			if (!$node instanceof File) {
+				continue;
+			}
+
+			$owner = $node->getOwner();
+			if ($owner !== null && $owner->getUID() === $uid) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	private function mapRow(array $row, array $folderTags): array

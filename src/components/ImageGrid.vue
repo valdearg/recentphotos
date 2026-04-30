@@ -9,7 +9,9 @@
 		</div>
 
 		<div v-else class="grid">
-			<div v-for="(image, index) in images" :key="image.id" class="tile" :title="relativePath(image)"
+			<div v-for="(image, index) in images" :key="image.id" class="tile"
+				@mouseenter="showInfo(image, $event)" @mousemove="moveInfo($event)" @mouseleave="hideInfo"
+				@focusin="showInfo(image, $event)" @focusout="hideInfo"
 				@click="$emit('open', { image, index })">
 				<div class="tile-actions" @click.stop>
 					<a class="tile-icon-link" :href="image.openUrl || image.downloadUrl" target="_blank" rel="noopener"
@@ -34,6 +36,26 @@
 			</div>
 		</div>
 
+		<div v-if="hoverImage" class="tile-info-popover" :class="{ 'above': hoverInfoAbove }" :style="hoverInfoStyle"
+			aria-hidden="true">
+			<div><strong>Name:</strong> {{ hoverImage.name }}</div>
+			<div><strong>Type:</strong> {{ hoverImage.mediaType }}</div>
+			<div><strong>Date taken:</strong> {{ formatDate(hoverImage.dateTaken) }}</div>
+			<div><strong>Created:</strong> {{ formatDate(hoverImage.created) }}</div>
+			<div><strong>Modified:</strong> {{ formatDate(hoverImage.modified) }}</div>
+			<div><strong>Size:</strong> {{ formatBytes(hoverImage.size) }}</div>
+			<div><strong>MIME:</strong> {{ hoverImage.mime }}</div>
+			<div v-if="hoverImage.folderTags && hoverImage.folderTags.length" class="tile-info-tags">
+				<strong>Folder tags:</strong>
+				<span class="tag-list">
+					<span v-for="tag in hoverImage.folderTags" :key="tag.id" class="folder-tag" :style="tagStyle(tag)">
+						{{ tag.name }}
+					</span>
+				</span>
+			</div>
+			<div><strong>Path:</strong> {{ relativePath(hoverImage) }}</div>
+		</div>
+
 		<div v-if="loading && images.length > 0" class="loading-more">
 			<span class="loading-spinner" aria-hidden="true"></span>
 			<span>Fetching more photos</span>
@@ -48,9 +70,63 @@ export default {
 		images: { type: Array, required: true },
 		loading: { type: Boolean, default: false },
 	},
+	data() {
+		return {
+			hoverImage: null,
+			hoverInfoLeft: 16,
+			hoverInfoTop: 16,
+			hoverInfoAbove: false,
+			hoverInfoMaxHeight: 320,
+		}
+	},
+	computed: {
+		hoverInfoStyle() {
+			return {
+				left: `${this.hoverInfoLeft}px`,
+				top: `${this.hoverInfoTop}px`,
+				maxHeight: `${this.hoverInfoMaxHeight}px`,
+			}
+		},
+	},
 	methods: {
+		showInfo(image, e) {
+			this.hoverImage = image
+			this.moveInfo(e)
+		},
+		moveInfo(e) {
+			const source = e?.currentTarget
+			const rect = source?.getBoundingClientRect ? source.getBoundingClientRect() : null
+			const clientX = e?.clientX || (rect ? rect.right : 16)
+			const clientY = e?.clientY || (rect ? rect.top : 16)
+			const popoverWidth = Math.min(380, Math.max(280, window.innerWidth - 32))
+			const margin = 16
+
+			this.hoverInfoAbove = clientY > window.innerHeight * 0.58
+			this.hoverInfoLeft = Math.max(margin, Math.min(clientX + 16, window.innerWidth - popoverWidth - margin))
+			this.hoverInfoTop = this.hoverInfoAbove
+				? Math.max(margin, clientY - 16)
+				: Math.min(window.innerHeight - margin, clientY + 16)
+			this.hoverInfoMaxHeight = Math.max(
+				160,
+				this.hoverInfoAbove ? clientY - (margin * 2) : window.innerHeight - clientY - (margin * 2),
+			)
+		},
+		hideInfo() {
+			this.hoverImage = null
+		},
 		formatDate(ts) {
 			return ts ? new Date(ts * 1000).toLocaleString() : 'Unknown'
+		},
+		formatBytes(b) {
+			if (!b && b !== 0) return 'Unknown'
+			const u = ['B', 'KB', 'MB', 'GB', 'TB']
+			let i = 0
+			let value = b
+			while (value >= 1024 && i < u.length - 1) {
+				value /= 1024
+				i++
+			}
+			return `${value.toFixed(value >= 10 || i === 0 ? 0 : 1)} ${u[i]}`
 		},
 		relativePath(image) {
 			if (!image || !image.path) {
@@ -60,6 +136,18 @@ export default {
 			return image.path
 				.replace(/^\/[^/]+\/files\//, '')
 				.replace(/^\/+/, '')
+		},
+		tagStyle(tag) {
+			if (!tag || !tag.color) return {}
+
+			const color = String(tag.color).trim()
+			if (!/^#?[0-9a-f]{6}$/i.test(color)) return {}
+
+			const normalized = color.startsWith('#') ? color : `#${color}`
+			return {
+				borderColor: normalized,
+				backgroundColor: `${normalized}26`,
+			}
 		},
 	},
 }
@@ -71,6 +159,7 @@ export default {
 	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 	gap: 14px;
 	width: 100%;
+	overflow: visible;
 }
 
 .tile {
@@ -83,6 +172,11 @@ export default {
 	border: 1px solid var(--color-border);
 	min-width: 0;
 	cursor: pointer;
+}
+
+.tile:hover,
+.tile:focus-within {
+	z-index: 20;
 }
 
 .tile-actions {
@@ -140,6 +234,73 @@ export default {
 	aspect-ratio: 1 / 1;
 	object-fit: cover;
 	display: block;
+	border-radius: 10px 10px 0 0;
+}
+
+.tile-info-popover {
+	position: fixed;
+	z-index: 10000;
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 3px;
+	width: min(380px, calc(100vw - 32px));
+	overflow: auto;
+	padding: 12px;
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: 8px;
+	background: rgba(10, 10, 10, 0.84);
+	color: white;
+	box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
+	backdrop-filter: blur(6px);
+	line-height: 1.35;
+	word-break: break-word;
+	pointer-events: none;
+	transform: translateY(0);
+	transition: transform 0.12s ease;
+}
+
+.tile-info-popover.above {
+	transform: translateY(-100%);
+}
+
+.tile-info-popover>div {
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr);
+	column-gap: 7px;
+	align-items: baseline;
+	min-width: 0;
+	font-size: 12px;
+}
+
+.tile-info-popover strong {
+	white-space: nowrap;
+	color: rgba(255, 255, 255, 0.86);
+}
+
+.tile-info-tags {
+	align-items: flex-start;
+}
+
+.tag-list {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: 5px;
+	min-width: 0;
+}
+
+.folder-tag {
+	display: inline-flex;
+	align-items: center;
+	max-width: 100%;
+	padding: 2px 7px;
+	border: 1px solid rgba(255, 255, 255, 0.18);
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.08);
+	color: rgba(255, 255, 255, 0.92);
+	font-size: 11px;
+	font-weight: 500;
+	line-height: 1.4;
+	overflow-wrap: anywhere;
 }
 
 .meta {

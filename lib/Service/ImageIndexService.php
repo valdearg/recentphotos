@@ -59,6 +59,10 @@ class ImageIndexService
 	{
 		$mediaType = $this->classifyMedia($file->getMimeType(), $file->getName());
 		if ($mediaType === null) {
+			$fileId = $file->getId();
+			if ($fileId !== null) {
+				$this->repository->deleteByFileId((int)$fileId);
+			}
 			return;
 		}
 

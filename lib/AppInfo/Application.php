@@ -4,12 +4,14 @@ declare(strict_types=1);
 namespace OCA\RecentPhotos\AppInfo;
 
 use OCA\RecentPhotos\Listener\FileDeletedListener;
+use OCA\RecentPhotos\Listener\FileRenamedListener;
 use OCA\RecentPhotos\Listener\FileWrittenListener;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use OCP\Files\Events\Node\NodeDeletedEvent;
+use OCP\Files\Events\Node\NodeRenamedEvent;
 use OCP\Files\Events\Node\NodeWrittenEvent;
 
 class Application extends App implements IBootstrap {
@@ -22,6 +24,7 @@ class Application extends App implements IBootstrap {
     public function register(IRegistrationContext $context): void {
         $context->registerEventListener(NodeWrittenEvent::class, FileWrittenListener::class);
         $context->registerEventListener(NodeDeletedEvent::class, FileDeletedListener::class);
+        $context->registerEventListener(NodeRenamedEvent::class, FileRenamedListener::class);
     }
 
     public function boot(IBootContext $context): void {
