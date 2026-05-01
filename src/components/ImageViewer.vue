@@ -112,7 +112,7 @@
 				<strong>Folder tags:</strong>
 				<span class="tag-list">
 					<a v-for="tag in currentImage.folderTags" :key="tag.id" class="folder-tag" :href="tagUrl(tag)"
-						:style="tagStyle(tag)" target="_blank" rel="noopener" title="Open tagged files"
+						:style="tagStyle(tag)" target="_blank" rel="noopener" title="Open tagged folders"
 						@click.stop>
 						{{ tag.name }}
 					</a>
@@ -483,7 +483,7 @@ export default {
 
 		tagUrl(tag) {
 			const tagId = encodeURIComponent(tag?.id || '')
-			return `${generateUrl(`/apps/files/tags/${tagId}`)}?dir=%2F${tagId}`
+			return `${generateUrl('/apps/files/tags')}?dir=${encodeURIComponent(`/${tagId}`)}`
 		},
 	},
 }
