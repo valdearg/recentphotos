@@ -10,8 +10,8 @@
 
 		<div v-else class="grid">
 			<div v-for="(image, index) in images" :key="image.id" class="tile"
-				@mouseenter="showInfo(image, $event)" @mousemove="moveInfo($event)" @mouseleave="hideInfo"
-				@focusin="showInfo(image, $event)" @focusout="hideInfo"
+				@mouseenter="showHoverInfo(image, $event)" @mousemove="moveInfo($event)" @mouseleave="hideInfo"
+				@focusin="showHoverInfo(image, $event)" @focusout="hideInfo"
 				@click="$emit('open', { image, index })">
 				<div class="tile-actions" @click.stop>
 					<a class="tile-icon-link" :href="image.openUrl || image.downloadUrl" target="_blank" rel="noopener"
@@ -32,6 +32,15 @@
 					<div class="sub">
 						{{ formatDate(image.dateTaken || image.created) }}
 					</div>
+					<div v-if="showTags && visibleTags(image).length" class="tile-tags" @click.stop>
+						<a v-for="tag in visibleTags(image)" :key="tag.id" class="tile-tag" :href="tagUrl(tag)"
+							:style="tagStyle(tag)" target="_blank" rel="noopener" title="Open tagged files">
+							{{ tag.name }}
+						</a>
+						<span v-if="remainingTagsCount(image) > 0" class="tile-tag tile-tag-more">
+							+{{ remainingTagsCount(image) }}
+						</span>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -45,6 +54,14 @@
 			<div><strong>Modified:</strong> {{ formatDate(hoverImage.modified) }}</div>
 			<div><strong>Size:</strong> {{ formatBytes(hoverImage.size) }}</div>
 			<div><strong>MIME:</strong> {{ hoverImage.mime }}</div>
+			<div v-if="hoverImage.fileTags && hoverImage.fileTags.length" class="tile-info-tags">
+				<strong>File tags:</strong>
+				<span class="tag-list">
+					<span v-for="tag in hoverImage.fileTags" :key="tag.id" class="folder-tag" :style="tagStyle(tag)">
+						{{ tag.name }}
+					</span>
+				</span>
+			</div>
 			<div v-if="hoverImage.folderTags && hoverImage.folderTags.length" class="tile-info-tags">
 				<strong>Folder tags:</strong>
 				<span class="tag-list">
@@ -64,11 +81,15 @@
 </template>
 
 <script>
+import { generateUrl } from '@nextcloud/router'
+
 export default {
 	name: 'ImageGrid',
 	props: {
 		images: { type: Array, required: true },
 		loading: { type: Boolean, default: false },
+		showInfo: { type: Boolean, default: true },
+		showTags: { type: Boolean, default: false },
 	},
 	data() {
 		return {
@@ -88,12 +109,23 @@ export default {
 			}
 		},
 	},
+	watch: {
+		showInfo(value) {
+			if (!value) {
+				this.hideInfo()
+			}
+		},
+	},
 	methods: {
-		showInfo(image, e) {
+		showHoverInfo(image, e) {
+			if (!this.showInfo) return
+
 			this.hoverImage = image
 			this.moveInfo(e)
 		},
 		moveInfo(e) {
+			if (!this.showInfo || !this.hoverImage) return
+
 			const source = e?.currentTarget
 			const rect = source?.getBoundingClientRect ? source.getBoundingClientRect() : null
 			const clientX = e?.clientX || (rect ? rect.right : 16)
@@ -148,6 +180,33 @@ export default {
 				borderColor: normalized,
 				backgroundColor: `${normalized}26`,
 			}
+		},
+		tagUrl(tag) {
+			const tagId = encodeURIComponent(tag?.id || '')
+			return `${generateUrl('/apps/files/tags')}?dir=${encodeURIComponent(`/${tagId}`)}`
+		},
+		visibleTags(image) {
+			return this.uniqueTags(image).slice(0, 3)
+		},
+		remainingTagsCount(image) {
+			return Math.max(0, this.uniqueTags(image).length - 3)
+		},
+		uniqueTags(image) {
+			const tags = [...(image?.fileTags || []), ...(image?.folderTags || [])]
+			const seen = new Set()
+			const unique = []
+
+			for (const tag of tags) {
+				const id = String(tag?.id || '')
+				if (!id || seen.has(id)) {
+					continue
+				}
+
+				seen.add(id)
+				unique.push(tag)
+			}
+
+			return unique
 		},
 	},
 }
@@ -319,6 +378,44 @@ export default {
 	font-size: 12px;
 	opacity: 0.7;
 	margin-top: 4px;
+}
+
+.tile-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 5px;
+	max-height: 43px;
+	margin-top: 8px;
+	overflow: hidden;
+}
+
+.tile-tag {
+	display: inline-flex;
+	align-items: center;
+	max-width: 100%;
+	padding: 2px 7px;
+	border: 1px solid var(--color-border, rgba(128, 128, 128, 0.28));
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--color-main-background) 84%, currentColor 16%);
+	color: var(--color-main-text);
+	font-size: 11px;
+	font-weight: 500;
+	line-height: 1.35;
+	text-decoration: none;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.tile-tag:hover,
+.tile-tag:focus-visible {
+	border-color: var(--color-primary-element, currentColor);
+	color: var(--color-primary-element, currentColor);
+	text-decoration: none;
+}
+
+.tile-tag-more {
+	color: var(--color-text-maxcontrast, currentColor);
 }
 
 .loading-state,

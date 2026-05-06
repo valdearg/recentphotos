@@ -108,6 +108,16 @@
 			<div><strong>Resolution:</strong> {{ mediaWidth && mediaHeight ? `${mediaWidth} × ${mediaHeight}` :
 				'Unknown' }}</div>
 			<div><strong>MIME:</strong> {{ currentImage.mime }}</div>
+			<div v-if="currentImage.fileTags && currentImage.fileTags.length" class="viewer-info-tags">
+				<strong>File tags:</strong>
+				<span class="tag-list">
+					<a v-for="tag in currentImage.fileTags" :key="tag.id" class="folder-tag" :href="tagUrl(tag)"
+						:style="tagStyle(tag)" target="_blank" rel="noopener" title="Open tagged files"
+						@click.stop>
+						{{ tag.name }}
+					</a>
+				</span>
+			</div>
 			<div v-if="currentImage.folderTags && currentImage.folderTags.length" class="viewer-info-tags">
 				<strong>Folder tags:</strong>
 				<span class="tag-list">

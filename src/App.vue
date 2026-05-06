@@ -12,6 +12,27 @@
 			</div>
 
 			<div class="top-right">
+				<button type="button" class="icon-button" :class="{ 'is-active': showGridTags }"
+					:title="showGridTags ? 'Hide grid tags' : 'Show grid tags'"
+					:aria-label="showGridTags ? 'Hide grid tags' : 'Show grid tags'"
+					:aria-pressed="showGridTags ? 'true' : 'false'" @click="toggleGridTags">
+					<svg viewBox="0 0 24 24">
+						<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+						<path d="M7 7h.01" />
+					</svg>
+				</button>
+
+				<button type="button" class="icon-button" :class="{ 'is-active': showGridInfo }"
+					:title="showGridInfo ? 'Hide info popups' : 'Show info popups'"
+					:aria-label="showGridInfo ? 'Hide info popups' : 'Show info popups'"
+					:aria-pressed="showGridInfo ? 'true' : 'false'" @click="toggleGridInfo">
+					<svg viewBox="0 0 24 24">
+						<circle cx="12" cy="12" r="10" />
+						<path d="M12 16v-4" />
+						<circle cx="12" cy="8" r="0.75" />
+					</svg>
+				</button>
+
 				<button type="button" class="icon-button" :class="{ 'is-loading': loading }" title="Refresh results"
 					aria-label="Refresh results" @click="refreshResults" :disabled="loading">
 					<svg viewBox="0 0 24 24">
@@ -23,7 +44,8 @@
 			</div>
 		</div>
 
-		<ImageGrid :images="images" :loading="loading" @open="openViewer" />
+		<ImageGrid :images="images" :loading="loading" :show-tags="showGridTags" :show-info="showGridInfo"
+			@open="openViewer" />
 
 		<PaginationControls v-if="settings.displayMode === 'pagination'" :page="page" :pages="pages"
 			@change="goToPage" />
@@ -88,6 +110,8 @@ export default {
 			total: 0,
 			loading: false,
 			loadingNextPage: null,
+			showGridInfo: true,
+			showGridTags: false,
 			rebuildingIndex: false,
 			viewerOpen: false,
 			viewerIndex: 0,
@@ -216,6 +240,14 @@ export default {
 				// Keep existing status if refresh fails
 			}
 		},
+
+		toggleGridTags() {
+			this.showGridTags = !this.showGridTags
+		},
+
+		toggleGridInfo() {
+			this.showGridInfo = !this.showGridInfo
+		},
 	},
 }
 </script>
@@ -278,6 +310,12 @@ export default {
 	filter: brightness(0.96);
 }
 
+.icon-button.is-active {
+	border-color: var(--color-primary-element, currentColor);
+	color: var(--color-primary-element, currentColor);
+	background: var(--color-primary-element-light, var(--color-main-background, rgba(255, 255, 255, 0.08)));
+}
+
 .icon-button:disabled {
 	opacity: 0.7;
 	cursor: default;
@@ -286,9 +324,18 @@ export default {
 .icon-button svg {
 	width: 18px;
 	height: 18px;
+	fill: none;
+}
+
+.icon-button svg path,
+.icon-button svg circle {
 	stroke: currentColor;
 	stroke-width: 2;
-	fill: none;
+}
+
+.icon-button svg circle[r="0.75"] {
+	fill: currentColor;
+	stroke: none;
 }
 
 .icon-button.is-loading svg,

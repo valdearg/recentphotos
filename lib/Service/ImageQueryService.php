@@ -41,7 +41,7 @@ class ImageQueryService
 
 		$total = max(0, $total - $removed);
 		$pages = max(1, (int)ceil($total / $limit));
-		$folderTags = $this->getFolderTagsForRows($uid, $rows, $user);
+		$tags = $this->getTagsForRows($uid, $rows, $user);
 
 		return [
 			'page' => $page,
@@ -52,7 +52,11 @@ class ImageQueryService
 			'sortDir' => $sortDir,
 			'mediaFilter' => $mediaFilter,
 			'items' => array_map(
-				fn(array $row): array => $this->mapRow($row, $folderTags[(string)$row['path']] ?? []),
+				fn(array $row): array => $this->mapRow(
+					$row,
+					$tags['folderTags'][(string)$row['path']] ?? [],
+					$tags['fileTags'][(string)$row['file_id']] ?? [],
+				),
 				$rows,
 			),
 		];
@@ -185,7 +189,7 @@ class ImageQueryService
 		return null;
 	}
 
-	private function mapRow(array $row, array $folderTags): array
+	private function mapRow(array $row, array $folderTags, array $fileTags): array
 	{
 		$fileId = (int)$row['file_id'];
 		$mediaType = (string)($row['media_type'] ?? 'image');
@@ -210,27 +214,39 @@ class ImageQueryService
 			'openUrl' => '/f/' . $fileId,
 			'downloadUrl' => $directUrl,
 			'folderTags' => $folderTags,
+			'fileTags' => $fileTags,
 		];
 	}
 
-	private function getFolderTagsForRows(string $uid, array $rows, ?IUser $user): array
+	private function getTagsForRows(string $uid, array $rows, ?IUser $user): array
 	{
+		$result = [
+			'folderTags' => [],
+			'fileTags' => [],
+		];
+
 		if ($uid === '' || $rows === []) {
-			return [];
+			return $result;
 		}
 
+		$userFolder = null;
 		try {
 			$userFolder = $this->rootFolder->getUserFolder($uid);
 		} catch (\Throwable $e) {
-			return [];
 		}
 
 		$folderIdsByPath = [];
 		$folderIdsByImagePath = [];
+		$fileIds = [];
 
 		foreach ($rows as $row) {
+			$fileId = (int)($row['file_id'] ?? 0);
+			if ($fileId > 0) {
+				$fileIds[] = (string)$fileId;
+			}
+
 			$imagePath = (string)($row['path'] ?? '');
-			if ($imagePath === '') {
+			if ($imagePath === '' || $userFolder === null) {
 				continue;
 			}
 
@@ -248,46 +264,38 @@ class ImageQueryService
 			}
 		}
 
-		if ($folderIdsByImagePath === []) {
-			return [];
+		$objectIds = array_values(array_unique(array_merge($fileIds, array_values($folderIdsByImagePath))));
+		if ($objectIds === []) {
+			return $result;
 		}
 
 		try {
-			$tagIdsByFolderId = $this->tagObjectMapper->getTagIdsForObjects(
-				array_values(array_unique($folderIdsByImagePath)),
-				'files',
-			);
+			$tagIdsByObjectId = $this->tagObjectMapper->getTagIdsForObjects($objectIds, 'files');
 		} catch (\Throwable $e) {
-			return [];
+			return $result;
 		}
 
 		$tagIds = [];
-		foreach ($tagIdsByFolderId as $folderTagIds) {
-			foreach ($folderTagIds as $tagId) {
+		foreach ($tagIdsByObjectId as $objectTagIds) {
+			foreach ($objectTagIds as $tagId) {
 				$tagIds[] = (string)$tagId;
 			}
 		}
 
 		$tagsById = $this->getVisibleTagsById(array_values(array_unique($tagIds)), $user);
 		if ($tagsById === []) {
-			return [];
+			return $result;
 		}
 
-		$tagsByImagePath = [];
+		foreach ($fileIds as $fileId) {
+			$result['fileTags'][$fileId] = $this->mapTagsById($tagIdsByObjectId[$fileId] ?? [], $tagsById);
+		}
+
 		foreach ($folderIdsByImagePath as $imagePath => $folderId) {
-			$tags = [];
-			foreach ($tagIdsByFolderId[$folderId] ?? [] as $tagId) {
-				$tag = $tagsById[(string)$tagId] ?? null;
-				if ($tag !== null) {
-					$tags[] = $tag;
-				}
-			}
-
-			usort($tags, fn(array $a, array $b): int => strnatcasecmp($a['name'], $b['name']));
-			$tagsByImagePath[$imagePath] = $tags;
+			$result['folderTags'][$imagePath] = $this->mapTagsById($tagIdsByObjectId[$folderId] ?? [], $tagsById);
 		}
 
-		return $tagsByImagePath;
+		return $result;
 	}
 
 	private function getRelativeFolderPath(string $uid, string $imagePath): ?string
@@ -349,5 +357,20 @@ class ImageQueryService
 		}
 
 		return $visibleTags;
+	}
+
+	private function mapTagsById(array $tagIds, array $tagsById): array
+	{
+		$tags = [];
+		foreach ($tagIds as $tagId) {
+			$tag = $tagsById[(string)$tagId] ?? null;
+			if ($tag !== null) {
+				$tags[] = $tag;
+			}
+		}
+
+		usort($tags, fn(array $a, array $b): int => strnatcasecmp($a['name'], $b['name']));
+
+		return $tags;
 	}
 }
