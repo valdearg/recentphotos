@@ -37,6 +37,14 @@
       </select>
     </label>
 
+    <label class="control-group">
+      <span>Thumbnails</span>
+      <select :value="thumbnailMode" @change="emitChange('thumbnailMode', $event.target.value)">
+        <option value="square">Square crop</option>
+        <option value="fit">Fit whole image</option>
+      </select>
+    </label>
+
     <label class="control-group page-size">
       <span>Items</span>
       <input type="number" min="1" :max="maxPageSize" :value="pageSize"
@@ -53,6 +61,7 @@ export default {
     sortDir: { type: String, required: true },
     mediaFilter: { type: String, required: true },
     displayMode: { type: String, required: true },
+    thumbnailMode: { type: String, default: 'square' },
     pageSize: { type: Number, required: true },
     maxPageSize: { type: Number, required: true },
   },

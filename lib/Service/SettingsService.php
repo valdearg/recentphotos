@@ -8,6 +8,7 @@ use OCP\IConfig;
 
 class SettingsService {
 	public const DISPLAY_MODES = ['pagination', 'infinite'];
+	public const THUMBNAIL_MODES = ['square', 'fit'];
 	public const SORT_FIELDS = ['date_taken', 'created', 'modified', 'name', 'size'];
 	public const SORT_DIRECTIONS = ['asc', 'desc'];
 
@@ -34,6 +35,7 @@ class SettingsService {
 	public function getPersonalSettings(string $uid): array {
 		return [
 			'displayMode' => $this->sanitizeDisplayMode($this->config->getUserValue($uid, Application::APP_ID, 'displayMode', 'pagination')),
+			'thumbnailMode' => $this->sanitizeThumbnailMode($this->config->getUserValue($uid, Application::APP_ID, 'thumbnailMode', 'square')),
 			'pageSize' => max(1, (int)$this->config->getUserValue($uid, Application::APP_ID, 'pageSize', '100')),
 			'sortBy' => $this->sanitizeSortField($this->config->getUserValue($uid, Application::APP_ID, 'sortBy', 'date_taken')),
 			'sortDir' => $this->sanitizeSortDirection($this->config->getUserValue($uid, Application::APP_ID, 'sortDir', 'desc')),
@@ -42,6 +44,7 @@ class SettingsService {
 
 	public function savePersonalSettings(string $uid, array $settings): void {
 		$this->config->setUserValue($uid, Application::APP_ID, 'displayMode', $this->sanitizeDisplayMode((string)$settings['displayMode']));
+		$this->config->setUserValue($uid, Application::APP_ID, 'thumbnailMode', $this->sanitizeThumbnailMode((string)($settings['thumbnailMode'] ?? 'square')));
 		$this->config->setUserValue($uid, Application::APP_ID, 'pageSize', (string)max(1, (int)$settings['pageSize']));
 		$this->config->setUserValue($uid, Application::APP_ID, 'sortBy', $this->sanitizeSortField((string)$settings['sortBy']));
 		$this->config->setUserValue($uid, Application::APP_ID, 'sortDir', $this->sanitizeSortDirection((string)$settings['sortDir']));
@@ -52,17 +55,20 @@ class SettingsService {
 		$personal = $this->getPersonalSettings($uid);
 		return [
 			'displayMode' => $personal['displayMode'] ?: $admin['defaultDisplayMode'],
+			'thumbnailMode' => $personal['thumbnailMode'] ?? 'square',
 			'pageSize' => min($personal['pageSize'] ?: $admin['defaultPageSize'], $admin['maxPageSize']),
 			'maxPageSize' => $admin['maxPageSize'],
 			'sortBy' => $personal['sortBy'] ?: $admin['defaultSortBy'],
 			'sortDir' => $personal['sortDir'] ?: $admin['defaultSortDir'],
 			'availableDisplayModes' => self::DISPLAY_MODES,
+			'availableThumbnailModes' => self::THUMBNAIL_MODES,
 			'availableSortFields' => self::SORT_FIELDS,
 			'availableSortDirections' => self::SORT_DIRECTIONS,
 		];
 	}
 
 	private function sanitizeDisplayMode(string $value): string { return in_array($value, self::DISPLAY_MODES, true) ? $value : 'pagination'; }
+	private function sanitizeThumbnailMode(string $value): string { return in_array($value, self::THUMBNAIL_MODES, true) ? $value : 'square'; }
 	private function sanitizeSortField(string $value): string { return in_array($value, self::SORT_FIELDS, true) ? $value : 'date_taken'; }
 	private function sanitizeSortDirection(string $value): string { return in_array($value, self::SORT_DIRECTIONS, true) ? $value : 'desc'; }
 }

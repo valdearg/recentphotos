@@ -8,7 +8,7 @@
 			No media found in the current index.
 		</div>
 
-		<div v-else class="grid">
+		<div v-else class="grid" :class="gridClass">
 			<div v-for="(image, index) in images" :key="image.id" class="tile"
 				@mouseenter="showHoverInfo(image, $event)" @mousemove="moveInfo($event)" @mouseleave="hideInfo"
 				@focusin="showHoverInfo(image, $event)" @focusout="hideInfo"
@@ -25,7 +25,11 @@
 				<div v-if="image.mediaType === 'video'" class="tile-badge">▶</div>
 				<div v-else-if="image.mediaType === 'gif'" class="tile-badge">GIF</div>
 
-				<img :src="image.previewUrl" :alt="image.name">
+				<div class="tile-media" :class="[tileMediaClass(image), { 'tile-media--loaded': isImageLoaded(image) }]"
+					:style="tileMediaStyle(image)">
+					<img class="tile-image" :src="image.previewUrl" :alt="image.name" :class="{ 'is-loaded': isImageLoaded(image) }"
+						@load="markImageLoaded(image, $event)" @error="markImageLoaded(image)">
+				</div>
 
 				<div class="meta">
 					<div class="name">{{ image.name }}</div>
@@ -90,6 +94,7 @@ export default {
 		loading: { type: Boolean, default: false },
 		showInfo: { type: Boolean, default: true },
 		showTags: { type: Boolean, default: false },
+		thumbnailMode: { type: String, default: 'square' },
 	},
 	data() {
 		return {
@@ -98,6 +103,8 @@ export default {
 			hoverInfoTop: 16,
 			hoverInfoAbove: false,
 			hoverInfoMaxHeight: 320,
+			loadedImageIds: {},
+			imageRatios: {},
 		}
 	},
 	computed: {
@@ -106,6 +113,11 @@ export default {
 				left: `${this.hoverInfoLeft}px`,
 				top: `${this.hoverInfoTop}px`,
 				maxHeight: `${this.hoverInfoMaxHeight}px`,
+			}
+		},
+		gridClass() {
+			return {
+				'grid--fit': this.thumbnailMode === 'fit',
 			}
 		},
 	},
@@ -145,6 +157,55 @@ export default {
 		},
 		hideInfo() {
 			this.hoverImage = null
+		},
+		isImageLoaded(image) {
+			return !!this.loadedImageIds[this.imageLoadKey(image)]
+		},
+		markImageLoaded(image, e = null) {
+			const img = e?.target
+			if (img?.naturalWidth > 0 && img?.naturalHeight > 0) {
+				this.$set(this.imageRatios, this.imageLoadKey(image), `${img.naturalWidth} / ${img.naturalHeight}`)
+			}
+			this.$set(this.loadedImageIds, this.imageLoadKey(image), true)
+		},
+		imageLoadKey(image) {
+			return `${image?.id || ''}:${image?.previewUrl || ''}`
+		},
+		tileMediaClass(image) {
+			if (this.thumbnailMode !== 'fit') {
+				return {}
+			}
+
+			return {
+				[`tile-media--${this.estimatedShape(image)}`]: true,
+			}
+		},
+		tileMediaStyle(image) {
+			if (this.thumbnailMode !== 'fit') {
+				return {}
+			}
+
+			const ratio = this.imageRatios[this.imageLoadKey(image)]
+			return ratio ? { '--tile-ratio': ratio } : {}
+		},
+		estimatedShape(image) {
+			if (image?.width > 0 && image?.height > 0) {
+				const ratio = image.width / image.height
+				if (ratio >= 1.55) return 'wide'
+				if (ratio <= 0.68) return 'tall'
+				if (ratio <= 0.88) return 'portrait'
+				return 'landscape'
+			}
+
+			const key = `${image?.id || ''}${image?.name || ''}`
+			let hash = 0
+			for (let i = 0; i < key.length; i++) {
+				hash = ((hash << 5) - hash) + key.charCodeAt(i)
+				hash |= 0
+			}
+
+			const shapes = ['landscape', 'portrait', 'wide', 'landscape', 'tall']
+			return shapes[Math.abs(hash) % shapes.length]
 		},
 		formatDate(ts) {
 			return ts ? new Date(ts * 1000).toLocaleString() : 'Unknown'
@@ -221,6 +282,13 @@ export default {
 	overflow: visible;
 }
 
+.grid--fit {
+	display: block;
+	column-count: auto;
+	column-width: 260px;
+	column-gap: 14px;
+}
+
 .tile {
 	position: relative;
 	display: block;
@@ -231,6 +299,14 @@ export default {
 	border: 1px solid var(--color-border);
 	min-width: 0;
 	cursor: pointer;
+}
+
+.grid--fit .tile {
+	display: inline-block;
+	width: 100%;
+	margin: 0 0 14px;
+	break-inside: avoid;
+	page-break-inside: avoid;
 }
 
 .tile:hover,
@@ -288,12 +364,60 @@ export default {
 	font-weight: 700;
 }
 
-.tile img {
+.tile-media {
+	position: relative;
 	width: 100%;
 	aspect-ratio: 1 / 1;
-	object-fit: cover;
-	display: block;
+	overflow: hidden;
 	border-radius: 10px 10px 0 0;
+	background:
+		linear-gradient(110deg, transparent 0%, rgba(128, 128, 128, 0.10) 44%, transparent 58%),
+		var(--color-background-dark, rgba(0, 0, 0, 0.04));
+	background-size: 220% 100%;
+	animation: recentphotos-placeholder-sheen 1.4s ease-in-out infinite;
+}
+
+.tile-image {
+	position: absolute;
+	inset: 0;
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	opacity: 0;
+	transition: opacity 0.18s ease;
+}
+
+.tile-image.is-loaded {
+	opacity: 1;
+}
+
+.tile-media--loaded {
+	animation: none;
+}
+
+.grid--fit .tile-media {
+	aspect-ratio: var(--tile-ratio, 4 / 3);
+}
+
+.grid--fit .tile-media--wide {
+	aspect-ratio: var(--tile-ratio, 16 / 9);
+}
+
+.grid--fit .tile-media--landscape {
+	aspect-ratio: var(--tile-ratio, 4 / 3);
+}
+
+.grid--fit .tile-media--portrait {
+	aspect-ratio: var(--tile-ratio, 4 / 5);
+}
+
+.grid--fit .tile-media--tall {
+	aspect-ratio: var(--tile-ratio, 3 / 4);
+}
+
+.grid--fit .tile-image {
+	object-fit: contain;
 }
 
 .tile-info-popover {
@@ -450,6 +574,28 @@ export default {
 
 	to {
 		transform: rotate(360deg);
+	}
+}
+
+@keyframes recentphotos-placeholder-sheen {
+	0% {
+		background-position: 120% 0;
+	}
+
+	100% {
+		background-position: -120% 0;
+	}
+}
+
+@media (min-width: 1200px) {
+	.grid--fit {
+		column-width: 300px;
+	}
+}
+
+@media (max-width: 700px) {
+	.grid--fit {
+		column-width: 220px;
 	}
 }
 </style>

@@ -8,7 +8,8 @@
 			<div class="top-center">
 				<SortControls :sort-by="settings.sortBy" :sort-dir="settings.sortDir"
 					:media-filter="settings.mediaFilter" :display-mode="settings.displayMode"
-					:page-size="settings.pageSize" :max-page-size="settings.maxPageSize" @change="onControlsChange" />
+					:thumbnail-mode="settings.thumbnailMode" :page-size="settings.pageSize"
+					:max-page-size="settings.maxPageSize" @change="onControlsChange" />
 			</div>
 
 			<div class="top-right">
@@ -45,7 +46,7 @@
 		</div>
 
 		<ImageGrid :images="images" :loading="loading" :show-tags="showGridTags" :show-info="showGridInfo"
-			@open="openViewer" />
+			:thumbnail-mode="settings.thumbnailMode" @open="openViewer" />
 
 		<PaginationControls v-if="settings.displayMode === 'pagination'" :page="page" :pages="pages"
 			@change="goToPage" />
@@ -101,6 +102,7 @@ export default {
 		return {
 			settings: {
 				mediaFilter: 'all',
+				thumbnailMode: 'square',
 				...this.initialSettings,
 			},
 			indexStatus: { ...this.initialIndexStatus },
@@ -207,10 +209,13 @@ export default {
 		},
 
 		async onControlsChange(changes) {
+			const shouldReload = Object.keys(changes).some(key => key !== 'thumbnailMode')
 			this.settings = { ...this.settings, ...changes }
 			await axios.post(generateUrl('/apps/recentphotos/api/settings/personal'), this.settings)
-			await this.loadPage(1, false)
-			this.scrollToTop()
+			if (shouldReload) {
+				await this.loadPage(1, false)
+				this.scrollToTop()
+			}
 		},
 
 		async rebuildIndex() {

@@ -32,6 +32,7 @@ class SettingsController extends Controller {
      */
     public function savePersonal(
         string $displayMode = 'pagination',
+        string $thumbnailMode = 'square',
         int $pageSize = 100,
         string $sortBy = 'created',
         string $sortDir = 'desc'
@@ -39,6 +40,7 @@ class SettingsController extends Controller {
         $uid = $this->userSession->getUser()?->getUID() ?? '';
         $this->settingsService->savePersonalSettings($uid, [
             'displayMode' => $displayMode,
+            'thumbnailMode' => $thumbnailMode,
             'pageSize' => $pageSize,
             'sortBy' => $sortBy,
             'sortDir' => $sortDir,
