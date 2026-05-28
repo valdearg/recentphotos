@@ -98,7 +98,14 @@
 			</div>
 		</div>
 
+		<div v-if="currentImage?.content" class="viewer-caption" :class="{ 'viewer-ui-hidden': uiHidden }"
+			@click.stop v-text="currentImage.content"></div>
+
 		<div v-if="showInfo && currentImage" class="viewer-info" :class="{ 'viewer-ui-hidden': uiHidden }">
+			<div v-if="currentImage.content" class="viewer-info-content">
+				<strong>Content:</strong>
+				<span v-text="currentImage.content"></span>
+			</div>
 			<div><strong>Name:</strong> {{ currentImage.name }}</div>
 			<div><strong>Type:</strong> {{ currentImage.mediaType }}</div>
 			<div><strong>Date taken:</strong> {{ formatDate(currentImage.dateTaken) }}</div>
@@ -681,12 +688,37 @@ export default {
 	transition: opacity 0.2s ease;
 }
 
+.viewer-caption {
+	position: absolute;
+	left: 50%;
+	bottom: 48px;
+	transform: translateX(-50%);
+	width: min(720px, calc(100vw - 40px));
+	max-height: min(28vh, 220px);
+	overflow: auto;
+	padding: 12px 14px;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 8px;
+	background: rgba(10, 10, 10, 0.72);
+	color: white;
+	line-height: 1.45;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+	backdrop-filter: blur(6px);
+	transition: opacity 0.2s ease;
+}
+
 .viewer-info>div {
 	display: grid;
 	grid-template-columns: max-content minmax(0, 1fr);
 	column-gap: 8px;
 	align-items: baseline;
 	min-width: 0;
+}
+
+.viewer-info-content span {
+	white-space: pre-wrap;
 }
 
 .viewer-info strong {

@@ -34,6 +34,17 @@
 					</svg>
 				</button>
 
+				<button type="button" class="icon-button" :class="{ 'is-active': settings.hideThumbnailInfo }"
+					:title="settings.hideThumbnailInfo ? 'Show thumbnail info' : 'Hide thumbnail info'"
+					:aria-label="settings.hideThumbnailInfo ? 'Show thumbnail info' : 'Hide thumbnail info'"
+					:aria-pressed="settings.hideThumbnailInfo ? 'true' : 'false'" @click="toggleThumbnailInfo">
+					<svg viewBox="0 0 24 24">
+						<rect x="4" y="5" width="16" height="14" rx="2" />
+						<path d="M7 15h10" />
+						<path d="M7 18h6" />
+					</svg>
+				</button>
+
 				<button type="button" class="icon-button" :class="{ 'is-loading': loading }" title="Refresh results"
 					aria-label="Refresh results" @click="refreshResults" :disabled="loading">
 					<svg viewBox="0 0 24 24">
@@ -46,7 +57,8 @@
 		</div>
 
 		<ImageGrid :images="images" :loading="loading" :show-tags="showGridTags" :show-info="showGridInfo"
-			:thumbnail-mode="settings.thumbnailMode" @open="openViewer" />
+			:thumbnail-mode="settings.thumbnailMode" :hide-thumbnail-info="settings.hideThumbnailInfo"
+			@open="openViewer" />
 
 		<PaginationControls v-if="settings.displayMode === 'pagination'" :page="page" :pages="pages"
 			@change="goToPage" />
@@ -103,6 +115,7 @@ export default {
 			settings: {
 				mediaFilter: 'all',
 				thumbnailMode: 'square',
+				hideThumbnailInfo: false,
 				...this.initialSettings,
 			},
 			indexStatus: { ...this.initialIndexStatus },
@@ -209,7 +222,8 @@ export default {
 		},
 
 		async onControlsChange(changes) {
-			const shouldReload = Object.keys(changes).some(key => key !== 'thumbnailMode')
+			const layoutOnlySettings = ['thumbnailMode', 'hideThumbnailInfo']
+			const shouldReload = Object.keys(changes).some(key => !layoutOnlySettings.includes(key))
 			this.settings = { ...this.settings, ...changes }
 			await axios.post(generateUrl('/apps/recentphotos/api/settings/personal'), this.settings)
 			if (shouldReload) {
@@ -252,6 +266,10 @@ export default {
 
 		toggleGridInfo() {
 			this.showGridInfo = !this.showGridInfo
+		},
+
+		async toggleThumbnailInfo() {
+			await this.onControlsChange({ hideThumbnailInfo: !this.settings.hideThumbnailInfo })
 		},
 	},
 }
@@ -315,10 +333,33 @@ export default {
 	filter: brightness(0.96);
 }
 
+.top-right button.icon-button:focus,
+.top-right button.icon-button:active {
+	outline: none !important;
+	border-color: var(--color-border, rgba(255, 255, 255, 0.25)) !important;
+	box-shadow: none !important;
+}
+
+.top-right button.icon-button:focus-visible {
+	outline: 2px solid var(--color-primary-element, currentColor) !important;
+	outline-offset: 2px !important;
+}
+
 .icon-button.is-active {
 	border-color: var(--color-primary-element, currentColor);
-	color: var(--color-primary-element, currentColor);
-	background: var(--color-primary-element-light, var(--color-main-background, rgba(255, 255, 255, 0.08)));
+	color: var(--color-primary-element-text, white);
+	background: var(--color-primary-element, currentColor);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, white 28%, transparent);
+}
+
+.top-right button.icon-button.is-active:focus,
+.top-right button.icon-button.is-active:active {
+	border-color: var(--color-primary-element, currentColor) !important;
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, white 28%, transparent) !important;
+}
+
+.icon-button.is-active:hover:not(:disabled) {
+	filter: brightness(1.05);
 }
 
 .icon-button:disabled {

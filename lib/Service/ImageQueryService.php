@@ -213,9 +213,41 @@ class ImageQueryService
 			'fullUrl' => $directUrl,
 			'openUrl' => '/f/' . $fileId,
 			'downloadUrl' => $directUrl,
+			'content' => $this->getSidecarContent((string)($row['user_id'] ?? ''), (string)$row['path']),
 			'folderTags' => $folderTags,
 			'fileTags' => $fileTags,
 		];
+	}
+
+	private function getSidecarContent(string $uid, string $imagePath): ?string
+	{
+		if ($uid === '' || $imagePath === '') {
+			return null;
+		}
+
+		$prefix = '/' . $uid . '/files/';
+		if (!str_starts_with($imagePath, $prefix)) {
+			return null;
+		}
+
+		try {
+			$userFolder = $this->rootFolder->getUserFolder($uid);
+			$sidecar = $userFolder->get(substr($imagePath, strlen($prefix)) . '.json');
+			if (!$sidecar instanceof File || $sidecar->getSize() > 1024 * 1024) {
+				return null;
+			}
+
+			$metadata = json_decode($sidecar->getContent(), true);
+			$content = is_array($metadata) ? ($metadata['content'] ?? null) : null;
+			if (!is_string($content)) {
+				return null;
+			}
+
+			$content = trim($content);
+			return $content === '' ? null : $content;
+		} catch (\Throwable $e) {
+			return null;
+		}
 	}
 
 	private function getTagsForRows(string $uid, array $rows, ?IUser $user): array

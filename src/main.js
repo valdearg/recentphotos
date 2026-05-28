@@ -6,6 +6,7 @@ import './style.css'
 const initialSettings = loadState('recentphotos', 'settings', {
   displayMode: 'pagination',
   thumbnailMode: 'square',
+  hideThumbnailInfo: false,
   pageSize: 100,
   maxPageSize: 500,
   sortBy: 'date_taken',

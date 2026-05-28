@@ -31,7 +31,7 @@
 						@load="markImageLoaded(image, $event)" @error="markImageLoaded(image)">
 				</div>
 
-				<div class="meta">
+				<div v-if="!hideThumbnailInfo" class="meta">
 					<div class="name">{{ image.name }}</div>
 					<div class="sub">
 						{{ formatDate(image.dateTaken || image.created) }}
@@ -95,6 +95,7 @@ export default {
 		showInfo: { type: Boolean, default: true },
 		showTags: { type: Boolean, default: false },
 		thumbnailMode: { type: String, default: 'square' },
+		hideThumbnailInfo: { type: Boolean, default: false },
 	},
 	data() {
 		return {

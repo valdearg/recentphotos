@@ -36,6 +36,7 @@ class SettingsService {
 		return [
 			'displayMode' => $this->sanitizeDisplayMode($this->config->getUserValue($uid, Application::APP_ID, 'displayMode', 'pagination')),
 			'thumbnailMode' => $this->sanitizeThumbnailMode($this->config->getUserValue($uid, Application::APP_ID, 'thumbnailMode', 'square')),
+			'hideThumbnailInfo' => $this->sanitizeBoolean($this->config->getUserValue($uid, Application::APP_ID, 'hideThumbnailInfo', '0')),
 			'pageSize' => max(1, (int)$this->config->getUserValue($uid, Application::APP_ID, 'pageSize', '100')),
 			'sortBy' => $this->sanitizeSortField($this->config->getUserValue($uid, Application::APP_ID, 'sortBy', 'date_taken')),
 			'sortDir' => $this->sanitizeSortDirection($this->config->getUserValue($uid, Application::APP_ID, 'sortDir', 'desc')),
@@ -45,6 +46,7 @@ class SettingsService {
 	public function savePersonalSettings(string $uid, array $settings): void {
 		$this->config->setUserValue($uid, Application::APP_ID, 'displayMode', $this->sanitizeDisplayMode((string)$settings['displayMode']));
 		$this->config->setUserValue($uid, Application::APP_ID, 'thumbnailMode', $this->sanitizeThumbnailMode((string)($settings['thumbnailMode'] ?? 'square')));
+		$this->config->setUserValue($uid, Application::APP_ID, 'hideThumbnailInfo', $this->sanitizeBoolean($settings['hideThumbnailInfo'] ?? false) ? '1' : '0');
 		$this->config->setUserValue($uid, Application::APP_ID, 'pageSize', (string)max(1, (int)$settings['pageSize']));
 		$this->config->setUserValue($uid, Application::APP_ID, 'sortBy', $this->sanitizeSortField((string)$settings['sortBy']));
 		$this->config->setUserValue($uid, Application::APP_ID, 'sortDir', $this->sanitizeSortDirection((string)$settings['sortDir']));
@@ -56,6 +58,7 @@ class SettingsService {
 		return [
 			'displayMode' => $personal['displayMode'] ?: $admin['defaultDisplayMode'],
 			'thumbnailMode' => $personal['thumbnailMode'] ?? 'square',
+			'hideThumbnailInfo' => $personal['hideThumbnailInfo'] ?? false,
 			'pageSize' => min($personal['pageSize'] ?: $admin['defaultPageSize'], $admin['maxPageSize']),
 			'maxPageSize' => $admin['maxPageSize'],
 			'sortBy' => $personal['sortBy'] ?: $admin['defaultSortBy'],
@@ -69,6 +72,7 @@ class SettingsService {
 
 	private function sanitizeDisplayMode(string $value): string { return in_array($value, self::DISPLAY_MODES, true) ? $value : 'pagination'; }
 	private function sanitizeThumbnailMode(string $value): string { return in_array($value, self::THUMBNAIL_MODES, true) ? $value : 'square'; }
+	private function sanitizeBoolean(mixed $value): bool { return filter_var($value, FILTER_VALIDATE_BOOLEAN); }
 	private function sanitizeSortField(string $value): string { return in_array($value, self::SORT_FIELDS, true) ? $value : 'date_taken'; }
 	private function sanitizeSortDirection(string $value): string { return in_array($value, self::SORT_DIRECTIONS, true) ? $value : 'desc'; }
 }
