@@ -9,7 +9,7 @@ use OCP\IConfig;
 class SettingsService {
 	public const DISPLAY_MODES = ['pagination', 'infinite'];
 	public const THUMBNAIL_MODES = ['square', 'fit'];
-	public const SORT_FIELDS = ['date_taken', 'created', 'modified', 'name', 'size'];
+	public const SORT_FIELDS = ['date_taken', 'id', 'created', 'modified', 'name', 'size'];
 	public const SORT_DIRECTIONS = ['asc', 'desc'];
 
 	public function __construct(private IConfig $config) {}

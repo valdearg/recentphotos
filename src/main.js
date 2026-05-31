@@ -14,7 +14,7 @@ const initialSettings = loadState('recentphotos', 'settings', {
   mediaFilter: 'all',
   availableDisplayModes: ['pagination', 'infinite'],
   availableThumbnailModes: ['square', 'fit'],
-  availableSortFields: ['date_taken', 'created', 'modified', 'name', 'size'],
+  availableSortFields: ['date_taken', 'id', 'created', 'modified', 'name', 'size'],
   availableSortDirections: ['asc', 'desc'],
 })
 

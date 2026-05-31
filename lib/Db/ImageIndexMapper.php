@@ -110,7 +110,7 @@ class ImageIndexMapper extends QBMapper
 		string $sortDir,
 		string $mediaFilter = 'all'
 	): array {
-		$allowedSort = ['date_taken', 'created', 'modified', 'name', 'size'];
+		$allowedSort = ['date_taken', 'id', 'created', 'modified', 'name', 'size'];
 		if (!in_array($sortBy, $allowedSort, true)) {
 			$sortBy = 'date_taken';
 		}

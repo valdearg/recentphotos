@@ -4,6 +4,7 @@
       <span>Sort by</span>
       <select :value="sortBy" @change="emitChange('sortBy', $event.target.value)">
         <option value="date_taken">Date taken</option>
+        <option value="id">Added to database</option>
         <option value="created">Created</option>
         <option value="modified">Modified</option>
         <option value="name">Name</option>
