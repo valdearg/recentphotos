@@ -232,7 +232,8 @@ class ImageQueryService
 
 		try {
 			$userFolder = $this->rootFolder->getUserFolder($uid);
-			$sidecar = $userFolder->get(substr($imagePath, strlen($prefix)) . '.json');
+			$relativeImagePath = substr($imagePath, strlen($prefix));
+			$sidecar = $this->getSidecarFile($userFolder, $relativeImagePath);
 			if (!$sidecar instanceof File || $sidecar->getSize() > 1024 * 1024) {
 				return null;
 			}
@@ -253,6 +254,29 @@ class ImageQueryService
 
 			$content = trim($content);
 			return $content === '' ? null : $content;
+		} catch (\Throwable $e) {
+			return null;
+		}
+	}
+
+	private function getSidecarFile(Folder $userFolder, string $relativeImagePath): ?File
+	{
+		try {
+			$sidecar = $userFolder->get($relativeImagePath . '.json');
+			if ($sidecar instanceof File) {
+				return $sidecar;
+			}
+		} catch (\Throwable $e) {
+		}
+
+		$relativeFolder = trim(str_replace('\\', '/', dirname($relativeImagePath)), '/');
+		$infoPath = $relativeFolder === '.' || $relativeFolder === ''
+			? 'info.json'
+			: $relativeFolder . '/info.json';
+
+		try {
+			$sidecar = $userFolder->get($infoPath);
+			return $sidecar instanceof File ? $sidecar : null;
 		} catch (\Throwable $e) {
 			return null;
 		}
