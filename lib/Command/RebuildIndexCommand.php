@@ -35,7 +35,7 @@ class RebuildIndexCommand extends Command
                 'delete-stale',
                 null,
                 InputOption::VALUE_NONE,
-                'For path-based scans, remove stale indexed rows under the scanned path'
+                'Deprecated; path-based scans remove stale indexed rows by default'
             )
             ->addOption(
                 'path',
@@ -63,8 +63,6 @@ class RebuildIndexCommand extends Command
 
         $users = $this->resolveUsers($userOption);
 
-        $deleteStale = (bool)$input->getOption('delete-stale');
-
         if ($users === []) {
             $output->writeln('<error>No matching user found.</error>');
             $this->indexStatusService->setStatus('idle');
@@ -79,12 +77,12 @@ class RebuildIndexCommand extends Command
             if ($paths !== []) {
                 foreach ($paths as $path) {
                     $output->writeln(sprintf('Indexing media for %s in path %s ...', $userId, $path));
-                    $stats = $this->runIndex($output, $userId, $path, $deleteStale);
+                    $stats = $this->runIndex($output, $userId, $path);
                     $this->mergeStats($grandStats, $stats);
                 }
             } else {
                 $output->writeln(sprintf('Indexing media for %s ...', $userId));
-                $stats = $this->runIndex($output, $userId, null, $deleteStale);
+                $stats = $this->runIndex($output, $userId, null);
                 $this->mergeStats($grandStats, $stats);
             }
         }
@@ -101,7 +99,7 @@ class RebuildIndexCommand extends Command
         return Command::SUCCESS;
     }
 
-    private function runIndex(OutputInterface $output, string $userId, ?string $path, bool $deleteStale): array
+    private function runIndex(OutputInterface $output, string $userId, ?string $path): array
     {
         $started = microtime(true);
 
@@ -130,8 +128,7 @@ class RebuildIndexCommand extends Command
                     $maxPathLength = max(30, $termWidth - 50);
                     $progress->setMessage($this->formatProgressPath($currentPath, $maxPathLength));
                 }
-            },
-            $deleteStale
+            }
         );
 
         $elapsed = (int)round(microtime(true) - $started);

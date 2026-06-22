@@ -32,13 +32,7 @@ class ImageIndexMapper extends QBMapper
 
 	public function existsByFileId(int $fileId): bool
 	{
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('id')
-			->from('recentphotos_index')
-			->where($qb->expr()->eq('file_id', $qb->createNamedParameter($fileId)))
-			->setMaxResults(1);
-
-		return $qb->executeQuery()->fetchOne() !== false;
+		return $this->findRowByFileId($fileId) !== null;
 	}
 
 	public function deleteStaleForUser(string $userId, int $runStartedAt): int
@@ -60,9 +54,14 @@ class ImageIndexMapper extends QBMapper
 
 	public function upsert(array $row): string
 	{
-		$exists = $this->existsByFileId((int)$row['fileId']);
+		$existing = $this->findRowByFileId((int)$row['fileId']);
 
-		$this->deleteByFileId((int)$row['fileId']);
+		if ($existing !== null) {
+			$changedColumns = $this->getChangedColumns($existing, $row);
+			$this->updateExistingRow((int)$existing['id'], $row, $changedColumns);
+
+			return $changedColumns === [] ? 'unchanged' : 'updated';
+		}
 
 		$entity = new ImageIndex();
 		$entity->setUserId((string)$row['userId']);
@@ -79,7 +78,79 @@ class ImageIndexMapper extends QBMapper
 
 		$this->insert($entity);
 
-		return $exists ? 'updated' : 'new';
+		return 'new';
+	}
+
+	private function findRowByFileId(int $fileId): ?array
+	{
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from('recentphotos_index')
+			->where($qb->expr()->eq('file_id', $qb->createNamedParameter($fileId)))
+			->setMaxResults(1);
+
+		$row = $qb->executeQuery()->fetchAssociative();
+		return is_array($row) ? $row : null;
+	}
+
+	private function getChangedColumns(array $existing, array $row): array
+	{
+		$columns = [
+			'user_id' => ['value' => (string)$row['userId'], 'type' => 'string'],
+			'path' => ['value' => (string)$row['path'], 'type' => 'string'],
+			'name' => ['value' => (string)$row['name'], 'type' => 'string'],
+			'mime' => ['value' => (string)$row['mime'], 'type' => 'string'],
+			'size' => ['value' => (int)$row['size'], 'type' => 'int'],
+			'media_type' => ['value' => (string)($row['mediaType'] ?? 'image'), 'type' => 'string'],
+			'date_taken' => ['value' => isset($row['dateTaken']) ? (int)$row['dateTaken'] : null, 'type' => 'nullable_int'],
+			'created' => ['value' => (int)$row['created'], 'type' => 'int'],
+			'modified' => ['value' => (int)$row['modified'], 'type' => 'int'],
+		];
+
+		$changed = [];
+		foreach ($columns as $column => $definition) {
+			$value = $definition['value'];
+			$type = $definition['type'];
+
+			$isChanged = match ($type) {
+				'int' => (int)($existing[$column] ?? 0) !== $value,
+				'nullable_int' => $this->normalizeNullableInt($existing[$column] ?? null) !== $value,
+				default => (string)($existing[$column] ?? '') !== $value,
+			};
+
+			if ($isChanged) {
+				$changed[$column] = $value;
+			}
+		}
+
+		return $changed;
+	}
+
+	private function normalizeNullableInt(mixed $value): ?int
+	{
+		if ($value === null || $value === '') {
+			return null;
+		}
+
+		return (int)$value;
+	}
+
+	private function updateExistingRow(int $id, array $row, array $changedColumns): void
+	{
+		$qb = $this->db->getQueryBuilder();
+		$qb->update('recentphotos_index')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)));
+
+		foreach ($changedColumns as $column => $value) {
+			$qb->set($column, $qb->createNamedParameter($value));
+		}
+
+		$qb->set(
+			'last_seen_at',
+			$qb->createNamedParameter(isset($row['lastSeenAt']) ? (int)$row['lastSeenAt'] : null)
+		);
+
+		$qb->executeStatement();
 	}
 
 	public function deleteStaleForUserPath(string $userId, string $pathPrefix, int $runStartedAt): int

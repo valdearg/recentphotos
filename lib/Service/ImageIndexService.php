@@ -22,8 +22,7 @@ class ImageIndexService
 	public function rebuildForUser(
 		string $userId,
 		?string $relativePath = null,
-		?callable $progressCallback = null,
-		bool $deleteStale = false
+		?callable $progressCallback = null
 	): array {
 		$userFolder = $this->rootFolder->getUserFolder($userId);
 		$folder = $this->resolveFolder($userFolder, $relativePath);
@@ -38,13 +37,13 @@ class ImageIndexService
 			'errors' => 0,
 		];
 
-		$this->walkAndIndex($userId, $folder, $stats, $runStartedAt, $progressCallback);
+		if (!$this->hasNoIndexMarkerInPath($userFolder, $folder)) {
+			$this->walkAndIndex($userId, $folder, $stats, $runStartedAt, $progressCallback);
+		}
 
-		// Only remove stale records on full-user rebuilds.
-		// Path-scoped rebuilds are intentionally non-destructive.
 		if ($relativePath === null || trim($relativePath) === '') {
 			$stats['removed'] = $this->repository->deleteStaleForUser($userId, $runStartedAt);
-		} elseif ($deleteStale) {
+		} else {
 			$stats['removed'] = $this->repository->deleteStaleForUserPath(
 				$userId,
 				$folder->getPath(),
@@ -57,6 +56,14 @@ class ImageIndexService
 
 	public function indexFile(string $userId, File $file): void
 	{
+		if ($this->isNoIndexProtectedFile($file)) {
+			$fileId = $file->getId();
+			if ($fileId !== null) {
+				$this->repository->deleteByFileId((int)$fileId);
+			}
+			return;
+		}
+
 		$mediaType = $this->classifyMedia($file->getMimeType(), $file->getName());
 		if ($mediaType === null) {
 			$fileId = $file->getId();
@@ -97,6 +104,10 @@ class ImageIndexService
 		int $runStartedAt,
 		?callable $progressCallback = null
 	): void {
+		if ($this->hasNoIndexMarker($folder)) {
+			return;
+		}
+
 		$stats['folders']++;
 
 		try {
@@ -140,7 +151,7 @@ class ImageIndexService
 
 				if ($result === 'new') {
 					$stats['new']++;
-				} else {
+				} elseif ($result === 'updated') {
 					$stats['updated']++;
 				}
 
@@ -155,6 +166,69 @@ class ImageIndexService
 				continue;
 			}
 		}
+	}
+
+	private function hasNoIndexMarkerInPath(Folder $userFolder, Folder $folder): bool
+	{
+		$current = $folder;
+		$userFolderPath = rtrim($userFolder->getPath(), '/');
+
+		while (true) {
+			if ($this->hasNoIndexMarker($current)) {
+				return true;
+			}
+
+			$currentPath = rtrim($current->getPath(), '/');
+			if ($currentPath === $userFolderPath || !method_exists($current, 'getParent')) {
+				return false;
+			}
+
+			try {
+				$parent = $current->getParent();
+			} catch (\Throwable $e) {
+				return false;
+			}
+
+			if (!$parent instanceof Folder) {
+				return false;
+			}
+
+			$current = $parent;
+		}
+	}
+
+	private function hasNoIndexMarker(Folder $folder): bool
+	{
+		try {
+			return $folder->get('.noindex') instanceof File;
+		} catch (\Throwable $e) {
+			return false;
+		}
+	}
+
+	private function isNoIndexProtectedFile(File $file): bool
+	{
+		$current = $file;
+
+		while (method_exists($current, 'getParent')) {
+			try {
+				$parent = $current->getParent();
+			} catch (\Throwable $e) {
+				return false;
+			}
+
+			if (!$parent instanceof Folder) {
+				return false;
+			}
+
+			if ($this->hasNoIndexMarker($parent)) {
+				return true;
+			}
+
+			$current = $parent;
+		}
+
+		return false;
 	}
 
 	private function classifyMedia(string $mime, string $name): ?string
