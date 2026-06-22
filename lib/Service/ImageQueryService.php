@@ -238,7 +238,15 @@ class ImageQueryService
 			}
 
 			$metadata = json_decode($sidecar->getContent(), true);
-			$content = is_array($metadata) ? ($metadata['content'] ?? null) : null;
+			$content = null;
+			if (is_array($metadata)) {
+				foreach (['content', 'Description', 'description'] as $key) {
+					if (isset($metadata[$key])) {
+						$content = $metadata[$key];
+						break;
+					}
+				}
+			}
 			if (!is_string($content)) {
 				return null;
 			}

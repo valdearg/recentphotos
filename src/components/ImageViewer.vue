@@ -99,12 +99,16 @@
 		</div>
 
 		<div v-if="currentImage?.content" class="viewer-caption" :class="{ 'viewer-ui-hidden': uiHidden }"
-			@click.stop v-text="currentImage.content"></div>
+			@click.stop>
+			<p v-for="(paragraph, index) in currentContentParagraphs" :key="index">{{ paragraph }}</p>
+		</div>
 
 		<div v-if="showInfo && currentImage" class="viewer-info" :class="{ 'viewer-ui-hidden': uiHidden }">
 			<div v-if="currentImage.content" class="viewer-info-content">
 				<strong>Content:</strong>
-				<span v-text="currentImage.content"></span>
+				<span class="viewer-content-paragraphs">
+					<span v-for="(paragraph, index) in currentContentParagraphs" :key="index">{{ paragraph }}</span>
+				</span>
 			</div>
 			<div><strong>Name:</strong> {{ currentImage.name }}</div>
 			<div><strong>Type:</strong> {{ currentImage.mediaType }}</div>
@@ -199,6 +203,9 @@ export default {
 		},
 		isVideo() {
 			return this.currentImage?.mediaType === 'video'
+		},
+		currentContentParagraphs() {
+			return this.contentParagraphs(this.currentImage?.content)
 		},
 		imageStyle() {
 			return {
@@ -485,6 +492,30 @@ export default {
 			return `${value.toFixed(value >= 10 || i === 0 ? 0 : 1)} ${u[i]}`
 		},
 
+		contentParagraphs(content) {
+			if (typeof content !== 'string') {
+				return []
+			}
+
+			const trimmed = content.trim()
+			if (trimmed === '') {
+				return []
+			}
+
+			if (/<\/?p[\s>]/i.test(trimmed) && typeof DOMParser !== 'undefined') {
+				const doc = new DOMParser().parseFromString(trimmed, 'text/html')
+				const paragraphs = Array.from(doc.body.querySelectorAll('p'))
+					.map(p => p.textContent.trim())
+					.filter(Boolean)
+
+				if (paragraphs.length > 0) {
+					return paragraphs
+				}
+			}
+
+			return trimmed.split(/\r?\n+/).map(line => line.trim()).filter(Boolean)
+		},
+
 		tagStyle(tag) {
 			if (!tag || !tag.color) return {}
 
@@ -709,6 +740,14 @@ export default {
 	transition: opacity 0.2s ease;
 }
 
+.viewer-caption p {
+	margin: 0 0 0.7em;
+}
+
+.viewer-caption p:last-child {
+	margin-bottom: 0;
+}
+
 .viewer-info>div {
 	display: grid;
 	grid-template-columns: max-content minmax(0, 1fr);
@@ -717,7 +756,9 @@ export default {
 	min-width: 0;
 }
 
-.viewer-info-content span {
+.viewer-content-paragraphs {
+	display: grid;
+	gap: 0.45em;
 	white-space: pre-wrap;
 }
 
