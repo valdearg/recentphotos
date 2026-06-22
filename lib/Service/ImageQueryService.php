@@ -199,6 +199,8 @@ class ImageQueryService
 			? $directUrl
 			: '/core/preview?fileId=' . $fileId . '&x=384&y=384&a=true';
 
+		$sidecarMetadata = $this->getSidecarMetadata((string)($row['user_id'] ?? ''), (string)$row['path']);
+
 		return [
 			'id' => $fileId,
 			'name' => (string)$row['name'],
@@ -213,13 +215,15 @@ class ImageQueryService
 			'fullUrl' => $directUrl,
 			'openUrl' => '/f/' . $fileId,
 			'downloadUrl' => $directUrl,
-			'content' => $this->getSidecarContent((string)($row['user_id'] ?? ''), (string)$row['path']),
+			'content' => $this->getMetadataContent($sidecarMetadata),
+			'tweetId' => $this->getMetadataTweetId($sidecarMetadata),
+			'tweetUrl' => $this->getMetadataTweetUrl($sidecarMetadata),
 			'folderTags' => $folderTags,
 			'fileTags' => $fileTags,
 		];
 	}
 
-	private function getSidecarContent(string $uid, string $imagePath): ?string
+	private function getSidecarMetadata(string $uid, string $imagePath): ?array
 	{
 		if ($uid === '' || $imagePath === '') {
 			return null;
@@ -239,24 +243,56 @@ class ImageQueryService
 			}
 
 			$metadata = json_decode($sidecar->getContent(), true);
-			$content = null;
-			if (is_array($metadata)) {
-				foreach (['content', 'Description', 'description'] as $key) {
-					if (isset($metadata[$key])) {
-						$content = $metadata[$key];
-						break;
-					}
-				}
-			}
-			if (!is_string($content)) {
-				return null;
-			}
-
-			$content = trim($content);
-			return $content === '' ? null : $content;
+			return is_array($metadata) ? $metadata : null;
 		} catch (\Throwable $e) {
 			return null;
 		}
+	}
+
+	private function getMetadataContent(?array $metadata): ?string
+	{
+		if ($metadata === null) {
+			return null;
+		}
+
+		$content = null;
+		foreach (['content', 'Description', 'description'] as $key) {
+			if (isset($metadata[$key])) {
+				$content = $metadata[$key];
+				break;
+			}
+		}
+		if (!is_string($content)) {
+			return null;
+		}
+
+		$content = trim($content);
+		return $content === '' ? null : $content;
+	}
+
+	private function getMetadataTweetId(?array $metadata): ?string
+	{
+		if ($metadata === null || !isset($metadata['tweet_id'])) {
+			return null;
+		}
+
+		$tweetId = $metadata['tweet_id'];
+		if (is_int($tweetId)) {
+			return (string)$tweetId;
+		}
+
+		if (is_string($tweetId)) {
+			$tweetId = trim($tweetId);
+			return preg_match('/^\d+$/', $tweetId) === 1 ? $tweetId : null;
+		}
+
+		return null;
+	}
+
+	private function getMetadataTweetUrl(?array $metadata): ?string
+	{
+		$tweetId = $this->getMetadataTweetId($metadata);
+		return $tweetId === null ? null : 'https://x.com/i/web/status/' . $tweetId;
 	}
 
 	private function getSidecarFile(Folder $userFolder, string $relativeImagePath): ?File

@@ -37,6 +37,11 @@
 					</svg>
 				</button>
 
+				<button v-if="currentImage?.tweetUrl" class="tweet-button" @click="openTweet" title="Open original tweet"
+					aria-label="Open original tweet">
+					X
+				</button>
+
 				<button @click="toggleFullscreen" title="Fullscreen">
 					<svg viewBox="0 0 24 24">
 						<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
@@ -336,6 +341,11 @@ export default {
 			if (url) window.open(url, '_blank', 'noopener')
 		},
 
+		openTweet() {
+			const url = this.currentImage?.tweetUrl
+			if (url) window.open(url, '_blank', 'noopener')
+		},
+
 		toggleInfo() {
 			this.showInfo = !this.showInfo
 			this.showSharePanel = false
@@ -610,6 +620,12 @@ export default {
 	stroke: white;
 	stroke-width: 2;
 	fill: none;
+}
+
+.viewer-actions .tweet-button {
+	font-size: 15px;
+	font-weight: 700;
+	line-height: 1;
 }
 
 .viewer-body {
