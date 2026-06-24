@@ -42,6 +42,16 @@
 					X
 				</button>
 
+				<button v-if="currentImage?.pawchiveUrl" class="external-source-button" @click="openPawchive"
+					title="Open Pawchive post" aria-label="Open Pawchive post">
+					P
+				</button>
+
+				<button v-if="currentImage?.kemonoUrl" class="external-source-button" @click="openKemono"
+					title="Open Kemono post" aria-label="Open Kemono post">
+					K
+				</button>
+
 				<button @click="toggleFullscreen" title="Fullscreen">
 					<svg viewBox="0 0 24 24">
 						<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
@@ -346,6 +356,16 @@ export default {
 			if (url) window.open(url, '_blank', 'noopener')
 		},
 
+		openPawchive() {
+			const url = this.currentImage?.pawchiveUrl
+			if (url) window.open(url, '_blank', 'noopener')
+		},
+
+		openKemono() {
+			const url = this.currentImage?.kemonoUrl
+			if (url) window.open(url, '_blank', 'noopener')
+		},
+
 		toggleInfo() {
 			this.showInfo = !this.showInfo
 			this.showSharePanel = false
@@ -622,7 +642,8 @@ export default {
 	fill: none;
 }
 
-.viewer-actions .tweet-button {
+.viewer-actions .tweet-button,
+.viewer-actions .external-source-button {
 	font-size: 15px;
 	font-weight: 700;
 	line-height: 1;

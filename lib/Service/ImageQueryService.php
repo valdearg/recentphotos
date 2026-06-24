@@ -218,6 +218,8 @@ class ImageQueryService
 			'content' => $this->getMetadataContent($sidecarMetadata),
 			'tweetId' => $this->getMetadataTweetId($sidecarMetadata),
 			'tweetUrl' => $this->getMetadataTweetUrl($sidecarMetadata),
+			'pawchiveUrl' => $this->getMetadataPawchiveUrl($sidecarMetadata),
+			'kemonoUrl' => $this->getMetadataKemonoUrl($sidecarMetadata),
 			'folderTags' => $folderTags,
 			'fileTags' => $fileTags,
 		];
@@ -293,6 +295,63 @@ class ImageQueryService
 	{
 		$tweetId = $this->getMetadataTweetId($metadata);
 		return $tweetId === null ? null : 'https://x.com/i/web/status/' . $tweetId;
+	}
+
+	private function getMetadataPawchiveUrl(?array $metadata): ?string
+	{
+		if ($metadata === null || ($metadata['category'] ?? null) !== 'pawchive') {
+			return null;
+		}
+
+		$service = $this->getMetadataString($metadata, 'service');
+		$user = $this->getMetadataString($metadata, 'user');
+		$id = $this->getMetadataString($metadata, 'id');
+		if ($service === null || $user === null || $id === null) {
+			return null;
+		}
+
+		return sprintf(
+			'https://pawchive.st/%s/user/%s/post/%s',
+			rawurlencode($service),
+			rawurlencode($user),
+			rawurlencode($id),
+		);
+	}
+
+	private function getMetadataKemonoUrl(?array $metadata): ?string
+	{
+		if ($metadata === null || !in_array($metadata['category'] ?? null, ['kemono', 'kemonoparty'], true)) {
+			return null;
+		}
+
+		$service = $this->getMetadataString($metadata, 'service');
+		$user = $this->getMetadataString($metadata, 'user');
+		$id = $this->getMetadataString($metadata, 'id');
+		if ($service === null || $user === null || $id === null) {
+			return null;
+		}
+
+		return sprintf(
+			'https://kemono.cr/%s/user/%s/post/%s',
+			rawurlencode($service),
+			rawurlencode($user),
+			rawurlencode($id),
+		);
+	}
+
+	private function getMetadataString(array $metadata, string $key): ?string
+	{
+		if (!isset($metadata[$key])) {
+			return null;
+		}
+
+		$value = $metadata[$key];
+		if (is_string($value) || is_int($value) || is_float($value)) {
+			$value = trim((string)$value);
+			return $value === '' ? null : $value;
+		}
+
+		return null;
 	}
 
 	private function getSidecarFile(Folder $userFolder, string $relativeImagePath): ?File
