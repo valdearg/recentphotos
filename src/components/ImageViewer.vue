@@ -113,13 +113,13 @@
 			</div>
 		</div>
 
-		<div v-if="currentImage?.content" class="viewer-caption" :class="{ 'viewer-ui-hidden': uiHidden }"
+		<div v-if="hasCurrentContent" class="viewer-caption" :class="{ 'viewer-ui-hidden': uiHidden }"
 			@click.stop>
 			<p v-for="(paragraph, index) in currentContentParagraphs" :key="index">{{ paragraph }}</p>
 		</div>
 
 		<div v-if="showInfo && currentImage" class="viewer-info" :class="{ 'viewer-ui-hidden': uiHidden }">
-			<div v-if="currentImage.content" class="viewer-info-content">
+			<div v-if="hasCurrentContent" class="viewer-info-content">
 				<strong>Content:</strong>
 				<span class="viewer-content-paragraphs">
 					<span v-for="(paragraph, index) in currentContentParagraphs" :key="index">{{ paragraph }}</span>
@@ -221,6 +221,9 @@ export default {
 		},
 		currentContentParagraphs() {
 			return this.contentParagraphs(this.currentImage?.content)
+		},
+		hasCurrentContent() {
+			return this.currentContentParagraphs.length > 0
 		},
 		imageStyle() {
 			return {

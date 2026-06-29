@@ -269,7 +269,13 @@ class ImageQueryService
 		}
 
 		$content = trim($content);
-		return $content === '' ? null : $content;
+		if ($content === '') {
+			return null;
+		}
+
+		$textContent = trim(html_entity_decode(strip_tags($content), ENT_QUOTES | ENT_HTML5));
+		$textContent = preg_replace('/\x{00a0}/u', ' ', $textContent) ?? $textContent;
+		return trim($textContent) === '' ? null : $content;
 	}
 
 	private function getMetadataTweetId(?array $metadata): ?string
