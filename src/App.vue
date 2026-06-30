@@ -13,6 +13,16 @@
 			</div>
 
 			<div class="top-right">
+				<button type="button" class="icon-button" :class="{ 'is-active': selectMode }"
+					:title="selectMode ? 'Exit select mode' : 'Select images'"
+					:aria-label="selectMode ? 'Exit select mode' : 'Select images'"
+					:aria-pressed="selectMode ? 'true' : 'false'" :disabled="deletingSelected" @click="toggleSelectMode">
+					<svg viewBox="0 0 24 24">
+						<path d="M9 11l3 3L22 4" />
+						<path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+					</svg>
+				</button>
+
 				<button type="button" class="icon-button" :class="{ 'is-active': showGridTags }"
 					:title="showGridTags ? 'Hide grid tags' : 'Show grid tags'"
 					:aria-label="showGridTags ? 'Hide grid tags' : 'Show grid tags'"
@@ -56,9 +66,37 @@
 			</div>
 		</div>
 
+		<div v-if="selectMode" class="selection-toolbar" aria-live="polite">
+			<span class="selection-count">{{ selectedCount }} selected</span>
+			<div class="selection-actions">
+				<button type="button" class="selection-button selection-button--danger"
+					:title="selectedCount ? 'Move selected items to deleted files' : 'Select images to delete'"
+					aria-label="Move selected items to deleted files" :disabled="selectedCount === 0 || deletingSelected"
+					@click="deleteSelectedImages">
+					<svg viewBox="0 0 24 24" :class="{ spinning: deletingSelected }">
+						<path d="M3 6h18" />
+						<path d="M8 6V4h8v2" />
+						<path d="M6 6l1 15h10l1-15" />
+						<path d="M10 11v6" />
+						<path d="M14 11v6" />
+					</svg>
+					<span>Delete</span>
+				</button>
+				<button type="button" class="selection-button" title="Clear selection" aria-label="Clear selection"
+					:disabled="deletingSelected" @click="clearSelection">
+					<svg viewBox="0 0 24 24">
+						<path d="M18 6 6 18" />
+						<path d="m6 6 12 12" />
+					</svg>
+					<span>Clear</span>
+				</button>
+			</div>
+		</div>
+
 		<ImageGrid :images="images" :loading="loading" :show-tags="showGridTags" :show-info="showGridInfo"
 			:thumbnail-mode="settings.thumbnailMode" :hide-thumbnail-info="settings.hideThumbnailInfo"
-			@open="openViewer" />
+			:select-mode="selectMode" :selected-ids="selectedImageIds" @open="openViewer"
+			@toggle-select="toggleImageSelection" />
 
 		<PaginationControls v-if="settings.displayMode === 'pagination'" :page="page" :pages="pages"
 			@change="goToPage" />
@@ -88,7 +126,7 @@
 
 <script>
 import axios from '@nextcloud/axios'
-import { generateUrl } from '@nextcloud/router'
+import { generateRemoteUrl, generateUrl } from '@nextcloud/router'
 import ImageGrid from './components/ImageGrid.vue'
 import ImageViewer from './components/ImageViewer.vue'
 import IndexStatusPanel from './components/IndexStatusPanel.vue'
@@ -127,10 +165,27 @@ export default {
 			loadingNextPage: null,
 			showGridInfo: true,
 			showGridTags: false,
+			selectMode: false,
+			selectedImageIds: {},
+			deletingSelected: false,
 			rebuildingIndex: false,
 			viewerOpen: false,
 			viewerIndex: 0,
 		}
+	},
+	computed: {
+		selectedIds() {
+			return Object.keys(this.selectedImageIds).map(id => Number(id)).filter(id => id > 0)
+		},
+
+		selectedCount() {
+			return this.selectedIds.length
+		},
+
+		selectedImages() {
+			const selected = new Set(this.selectedIds)
+			return this.images.filter(image => selected.has(Number(image.id)))
+		},
 	},
 	mounted() {
 		this.loadPage(1, false)
@@ -154,6 +209,7 @@ export default {
 				this.pages = data.pages
 				this.total = data.total
 				this.images = append ? [...this.images, ...data.items] : data.items
+				this.pruneSelection()
 			} finally {
 				this.loading = false
 			}
@@ -243,6 +299,8 @@ export default {
 		},
 
 		openViewer({ index }) {
+			if (this.selectMode) return
+
 			this.viewerIndex = index
 			this.viewerOpen = true
 		},
@@ -270,6 +328,95 @@ export default {
 
 		async toggleThumbnailInfo() {
 			await this.onControlsChange({ hideThumbnailInfo: !this.settings.hideThumbnailInfo })
+		},
+
+		toggleSelectMode() {
+			if (this.deletingSelected) return
+
+			this.selectMode = !this.selectMode
+			if (!this.selectMode) {
+				this.clearSelection()
+			}
+		},
+
+		toggleImageSelection(image) {
+			if (!image?.id || this.deletingSelected) return
+
+			const id = String(image.id)
+			if (this.selectedImageIds[id]) {
+				this.$delete(this.selectedImageIds, id)
+			} else {
+				this.$set(this.selectedImageIds, id, true)
+			}
+		},
+
+		clearSelection() {
+			this.selectedImageIds = {}
+		},
+
+		pruneSelection() {
+			if (!this.selectMode || this.images.length === 0) return
+
+			const visibleIds = new Set(this.images.map(image => String(image.id)))
+			for (const id of Object.keys(this.selectedImageIds)) {
+				if (!visibleIds.has(id)) {
+					this.$delete(this.selectedImageIds, id)
+				}
+			}
+		},
+
+		async deleteSelectedImages() {
+			const images = this.selectedImages
+			if (images.length === 0 || this.deletingSelected) return
+
+			const label = images.length === 1 ? 'this item' : `${images.length} items`
+			if (!window.confirm(`Move ${label} to deleted files?`)) {
+				return
+			}
+
+			this.deletingSelected = true
+			try {
+				const results = await Promise.all(images.map(async image => {
+					try {
+						await axios.delete(this.davUrl(image))
+						return { image, ok: true }
+					} catch (error) {
+						return { image, ok: false, error }
+					}
+				}))
+
+				const failed = results.filter(result => !result.ok)
+				this.clearSelection()
+				this.selectMode = false
+				await this.refreshResults()
+
+				if (failed.length > 0) {
+					const firstError = this.deleteErrorMessage(failed[0].error)
+					window.alert(`${failed.length} item${failed.length === 1 ? '' : 's'} could not be deleted: ${firstError}`)
+				}
+			} catch (e) {
+				window.alert(`Could not delete the selected items: ${this.deleteErrorMessage(e)}`)
+			} finally {
+				this.deletingSelected = false
+			}
+		},
+
+		davUrl(image) {
+			const match = String(image?.path || '').match(/^\/([^/]+)\/files\/(.+)$/)
+			if (!match) {
+				throw new Error('Could not resolve the file path.')
+			}
+
+			const uid = encodeURIComponent(match[1])
+			const relativePath = match[2].split('/').map(part => encodeURIComponent(part)).join('/')
+			return generateRemoteUrl(`dav/files/${uid}/${relativePath}`)
+		},
+
+		deleteErrorMessage(error) {
+			return error?.response?.data?.message
+				|| error?.response?.data?.error
+				|| error?.message
+				|| 'Unknown error'
 		},
 	},
 }
@@ -309,6 +456,8 @@ export default {
 	display: flex;
 	align-items: center;
 	gap: 8px;
+	flex-wrap: wrap;
+	justify-content: flex-end;
 }
 
 .icon-button {
@@ -384,6 +533,83 @@ export default {
 	stroke: none;
 }
 
+.selection-toolbar {
+	position: sticky;
+	top: 10px;
+	z-index: 900;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	min-height: 48px;
+	margin: 0 0 12px;
+	padding: 7px 8px 7px 14px;
+	border: 1px solid var(--color-border, rgba(255, 255, 255, 0.25));
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--color-main-background, #fff) 92%, var(--color-primary-element, #0082c9) 8%);
+	box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
+	box-sizing: border-box;
+}
+
+.selection-count {
+	font-size: 14px;
+	font-weight: 700;
+	white-space: nowrap;
+}
+
+.selection-actions {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.selection-button {
+	appearance: none;
+	-webkit-appearance: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 5px;
+	height: 34px;
+	padding: 0 12px;
+	border: 1px solid var(--color-border, rgba(255, 255, 255, 0.25));
+	border-radius: 8px;
+	background: var(--color-main-background, rgba(255, 255, 255, 0.08));
+	color: var(--color-main-text, currentColor);
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+	box-sizing: border-box;
+}
+
+.selection-button:hover:not(:disabled) {
+	filter: brightness(0.96);
+}
+
+.selection-button:disabled {
+	opacity: 0.6;
+	cursor: default;
+}
+
+.selection-button--danger:not(:disabled) {
+	border-color: var(--color-error, #e9322d);
+	background: var(--color-error, #e9322d);
+	color: white;
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.selection-button--danger:hover:not(:disabled) {
+	filter: brightness(1.08);
+}
+
+.selection-button svg {
+	width: 16px;
+	height: 16px;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 2;
+}
+
 .icon-button.is-loading svg,
 .spinning {
 	animation: recentphotos-spin 0.9s linear infinite;
@@ -451,6 +677,21 @@ export default {
 
 	.top-right {
 		justify-content: flex-start;
+	}
+
+	.selection-toolbar {
+		top: 8px;
+		align-items: stretch;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.selection-actions {
+		width: 100%;
+	}
+
+	.selection-button {
+		flex: 1;
 	}
 }
 </style>

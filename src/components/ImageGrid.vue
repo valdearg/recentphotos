@@ -10,10 +10,23 @@
 
 		<div v-else class="grid" :class="gridClass">
 			<div v-for="(image, index) in images" :key="image.id" class="tile"
+				:class="{ 'tile--select-mode': selectMode, 'tile--selected': isSelected(image) }"
+				role="button" tabindex="0" :aria-pressed="selectMode ? (isSelected(image) ? 'true' : 'false') : null"
 				@mouseenter="showHoverInfo(image, $event)" @mousemove="moveInfo($event)" @mouseleave="hideInfo"
 				@focusin="showHoverInfo(image, $event)" @focusout="hideInfo"
-				@click="$emit('open', { image, index })">
-				<div class="tile-actions" @click.stop>
+				@click="onTileClick(image, index)" @keydown.enter.prevent="onTileKeydown(image, index)"
+				@keydown.space.prevent="onTileKeydown(image, index)">
+				<button v-if="selectMode" type="button" class="tile-select-control"
+					:class="{ 'is-selected': isSelected(image) }"
+					:title="isSelected(image) ? 'Deselect image' : 'Select image'"
+					:aria-label="isSelected(image) ? 'Deselect image' : 'Select image'"
+					:aria-pressed="isSelected(image) ? 'true' : 'false'" @click.stop="$emit('toggle-select', image)">
+					<svg viewBox="0 0 24 24">
+						<path d="M20 6 9 17l-5-5" />
+					</svg>
+				</button>
+
+				<div v-if="!selectMode" class="tile-actions" @click.stop>
 					<a class="tile-icon-link" :href="image.openUrl || image.downloadUrl" target="_blank" rel="noopener"
 						title="Open in new tab" aria-label="Open in new tab">
 						<svg viewBox="0 0 24 24">
@@ -96,6 +109,8 @@ export default {
 		showTags: { type: Boolean, default: false },
 		thumbnailMode: { type: String, default: 'square' },
 		hideThumbnailInfo: { type: Boolean, default: false },
+		selectMode: { type: Boolean, default: false },
+		selectedIds: { type: Object, default: () => ({}) },
 	},
 	data() {
 		return {
@@ -128,16 +143,21 @@ export default {
 				this.hideInfo()
 			}
 		},
+		selectMode(value) {
+			if (value) {
+				this.hideInfo()
+			}
+		},
 	},
 	methods: {
 		showHoverInfo(image, e) {
-			if (!this.showInfo) return
+			if (!this.showInfo || this.selectMode) return
 
 			this.hoverImage = image
 			this.moveInfo(e)
 		},
 		moveInfo(e) {
-			if (!this.showInfo || !this.hoverImage) return
+			if (!this.showInfo || this.selectMode || !this.hoverImage) return
 
 			const source = e?.currentTarget
 			const rect = source?.getBoundingClientRect ? source.getBoundingClientRect() : null
@@ -158,6 +178,20 @@ export default {
 		},
 		hideInfo() {
 			this.hoverImage = null
+		},
+		isSelected(image) {
+			return !!this.selectedIds[String(image?.id || '')]
+		},
+		onTileClick(image, index) {
+			if (this.selectMode) {
+				this.$emit('toggle-select', image)
+				return
+			}
+
+			this.$emit('open', { image, index })
+		},
+		onTileKeydown(image, index) {
+			this.onTileClick(image, index)
 		},
 		isImageLoaded(image) {
 			return !!this.loadedImageIds[this.imageLoadKey(image)]
@@ -315,11 +349,74 @@ export default {
 	z-index: 20;
 }
 
+.tile:focus-visible {
+	outline: 2px solid var(--color-primary-element, currentColor);
+	outline-offset: 2px;
+}
+
+.tile--select-mode {
+	cursor: default;
+}
+
+.tile--selected {
+	border-color: var(--color-primary-element, currentColor);
+	box-shadow: inset 0 0 0 2px var(--color-primary-element, currentColor);
+}
+
+.tile--selected .tile-media::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: color-mix(in srgb, var(--color-primary-element, #0082c9) 18%, transparent);
+	pointer-events: none;
+}
+
 .tile-actions {
 	position: absolute;
 	top: 10px;
 	right: 10px;
 	z-index: 2;
+}
+
+.tile-select-control {
+	position: absolute;
+	top: 10px;
+	right: 10px;
+	z-index: 3;
+	appearance: none;
+	-webkit-appearance: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 38px;
+	height: 38px;
+	padding: 0;
+	margin: 0;
+	border: 1px solid rgba(255, 255, 255, 0.32);
+	border-radius: 8px;
+	background: rgba(0, 0, 0, 0.62);
+	color: white;
+	cursor: pointer;
+	box-sizing: border-box;
+}
+
+.tile-select-control:hover,
+.tile-select-control.is-selected {
+	background: var(--color-primary-element, #0082c9);
+	border-color: rgba(255, 255, 255, 0.5);
+}
+
+.tile-select-control svg {
+	width: 19px;
+	height: 19px;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 2.4;
+	opacity: 0;
+}
+
+.tile-select-control.is-selected svg {
+	opacity: 1;
 }
 
 .tile-icon-link {

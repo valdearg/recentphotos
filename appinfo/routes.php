@@ -3,6 +3,7 @@ return [
 	'routes' => [
 		['name' => 'page#index', 'url' => '/', 'verb' => 'GET'],
 		['name' => 'images#index', 'url' => '/api/images', 'verb' => 'GET'],
+		['name' => 'images#delete', 'url' => '/api/images', 'verb' => 'POST'],
 		['name' => 'images#view', 'url' => '/view', 'verb' => 'GET'],
 		['name' => 'settings#getPersonal', 'url' => '/api/settings/personal', 'verb' => 'GET'],
 		['name' => 'settings#savePersonal', 'url' => '/api/settings/personal', 'verb' => 'POST'],

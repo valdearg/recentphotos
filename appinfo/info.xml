@@ -4,7 +4,7 @@
   <name>Recent Photos</name>
   <summary>Recent image browser with index-backed browsing</summary>
   <description>A new photo browsing app for Nextcloud with configurable pagination or infinite scroll, index-backed querying, and settings.</description>
-  <version>0.6.0</version>
+  <version>0.6.1</version>
   <licence>agpl</licence>
   <author>Your Name</author>
   <namespace>RecentPhotos</namespace>
