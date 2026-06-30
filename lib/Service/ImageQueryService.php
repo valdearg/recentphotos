@@ -220,6 +220,7 @@ class ImageQueryService
 			'tweetUrl' => $this->getMetadataTweetUrl($sidecarMetadata),
 			'pawchiveUrl' => $this->getMetadataPawchiveUrl($sidecarMetadata),
 			'kemonoUrl' => $this->getMetadataKemonoUrl($sidecarMetadata),
+			'fanboxUrl' => $this->getMetadataFanboxUrl($sidecarMetadata),
 			'folderTags' => $folderTags,
 			'fileTags' => $fileTags,
 		];
@@ -341,6 +342,25 @@ class ImageQueryService
 			'https://kemono.cr/%s/user/%s/post/%s',
 			rawurlencode($service),
 			rawurlencode($user),
+			rawurlencode($id),
+		);
+	}
+
+	private function getMetadataFanboxUrl(?array $metadata): ?string
+	{
+		if ($metadata === null || ($metadata['category'] ?? null) !== 'fanbox') {
+			return null;
+		}
+
+		$creatorId = $this->getMetadataString($metadata, 'creatorId');
+		$id = $this->getMetadataString($metadata, 'id');
+		if ($creatorId === null || $id === null) {
+			return null;
+		}
+
+		return sprintf(
+			'https://www.fanbox.cc/@%s/posts/%s',
+			rawurlencode($creatorId),
 			rawurlencode($id),
 		);
 	}
