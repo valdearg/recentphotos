@@ -221,6 +221,7 @@ class ImageQueryService
 			'pawchiveUrl' => $this->getMetadataPawchiveUrl($sidecarMetadata),
 			'kemonoUrl' => $this->getMetadataKemonoUrl($sidecarMetadata),
 			'fanboxUrl' => $this->getMetadataFanboxUrl($sidecarMetadata),
+			'fantiaUrl' => $this->getMetadataFantiaUrl($sidecarMetadata),
 			'folderTags' => $folderTags,
 			'fileTags' => $fileTags,
 		];
@@ -363,6 +364,20 @@ class ImageQueryService
 			rawurlencode($creatorId),
 			rawurlencode($id),
 		);
+	}
+
+	private function getMetadataFantiaUrl(?array $metadata): ?string
+	{
+		if ($metadata === null || ($metadata['category'] ?? null) !== 'fantia') {
+			return null;
+		}
+
+		$postUrl = $this->getMetadataString($metadata, 'post_url');
+		if ($postUrl === null || !preg_match('/^https?:\/\//i', $postUrl)) {
+			return null;
+		}
+
+		return $postUrl;
 	}
 
 	private function getMetadataString(array $metadata, string $key): ?string

@@ -57,6 +57,11 @@
 					F
 				</button>
 
+				<button v-if="currentImage?.fantiaUrl" class="external-source-button" @click="openFantia"
+					title="Open Fantia post" aria-label="Open Fantia post">
+					Fa
+				</button>
+
 				<button @click="toggleFullscreen" title="Fullscreen">
 					<svg viewBox="0 0 24 24">
 						<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
@@ -376,6 +381,11 @@ export default {
 
 		openFanbox() {
 			const url = this.currentImage?.fanboxUrl
+			if (url) window.open(url, '_blank', 'noopener')
+		},
+
+		openFantia() {
+			const url = this.currentImage?.fantiaUrl
 			if (url) window.open(url, '_blank', 'noopener')
 		},
 
