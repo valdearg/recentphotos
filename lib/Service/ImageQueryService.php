@@ -222,6 +222,7 @@ class ImageQueryService
 			'kemonoUrl' => $this->getMetadataKemonoUrl($sidecarMetadata),
 			'fanboxUrl' => $this->getMetadataFanboxUrl($sidecarMetadata),
 			'fantiaUrl' => $this->getMetadataFantiaUrl($sidecarMetadata),
+			'gelbooruUrl' => $this->getMetadataGelbooruUrl($sidecarMetadata),
 			'folderTags' => $folderTags,
 			'fileTags' => $fileTags,
 		];
@@ -378,6 +379,20 @@ class ImageQueryService
 		}
 
 		return $postUrl;
+	}
+
+	private function getMetadataGelbooruUrl(?array $metadata): ?string
+	{
+		if ($metadata === null || ($metadata['category'] ?? null) !== 'gelbooru') {
+			return null;
+		}
+
+		$id = $this->getMetadataString($metadata, 'id');
+		if ($id === null || preg_match('/^\d+$/', $id) !== 1) {
+			return null;
+		}
+
+		return 'https://gelbooru.com/index.php?page=post&s=view&id=' . rawurlencode($id);
 	}
 
 	private function getMetadataString(array $metadata, string $key): ?string
